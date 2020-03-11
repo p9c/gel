@@ -3,7 +3,7 @@ package gel
 import (
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
-	"github.com/p9c/logi"
+	log "github.com/p9c/logi"
 )
 
 type item struct {
@@ -57,7 +57,7 @@ func (s *ScrollBar) processEvents(gtx *layout.Context) {
 				s.body.pressed = true
 				s.body.Do(s.body.OperateValue)
 				//list.Position.First = int(s.Position)
-				log.DEBUG("RADI PRESS")
+				log.L.Debug("RADI PRESS")
 			case pointer.Release:
 				s.body.pressed = false
 			}
