@@ -5,10 +5,10 @@ github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/go-gl/glfw v0.0.0-20190409004039-e6da0acd62b1/go.mod h1:vR7hzQXu2zJy9AVAgeJqvqgH9Q5CA+iKCZ2gyEVpxRU=
-github.com/p9c/goterm v0.0.2 h1:XOc0BTicZqOxff2ytn4fOLCLutFONgJfAzl6ONr6OCk=
-github.com/p9c/goterm v0.0.2/go.mod h1:+Y8lgDRodZxWcmBlnxnBZdnBfDESKDjvzi7BJpGc6u8=
-github.com/p9c/logi v0.0.12 h1:BIaKAlZmjmVOLeFya6t3w4PeVGk9Zi1mPsVvMFzUIy4=
-github.com/p9c/logi v0.0.12/go.mod h1:Be10Z8AjLd+iQ6Ik22gP86Z57vEHQdMA/4g3OdSbPSg=
+github.com/p9c/goterm v0.0.3 h1:0pajw+Pz3zL3aEZoPuIwMq36VV+WLI6Q6hRn4ZdMh7A=
+github.com/p9c/goterm v0.0.3/go.mod h1:+Y8lgDRodZxWcmBlnxnBZdnBfDESKDjvzi7BJpGc6u8=
+github.com/p9c/logi v0.0.13 h1:fRbMZXa+5euchoImLye0ZFrLq1RDvm29OP2m9sMgVZ8=
+github.com/p9c/logi v0.0.13/go.mod h1:P7NMwZA5PAI3mZBSz1e1XW//8QuJpktyqcWWbf5uuco=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
 golang.org/x/crypto v0.0.0-20190510104115-cbcb75029529/go.mod h1:yigFU9vqHzYiE8UmvKecakEJjdnWj3jj499lnFckfCI=
 golang.org/x/exp v0.0.0-20190306152737-a1d7652674e8/go.mod h1:CJ0aWSM057203Lf6IL+f9T1iT9GByDxfZKAQTCR3kQA=
