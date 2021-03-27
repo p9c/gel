@@ -1,187 +1,163 @@
-// SPDX-License-Identifier: Unlicense OR MIT
-
 package gel
 
 import (
-	"fmt"
-	"image"
-	"unicode/utf8"
-
-	"gioui.org/f32"
-	"gioui.org/layout"
-	"gioui.org/op"
+	"image/color"
+	
+	l "gioui.org/layout"
 	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/unit"
-
-	"golang.org/x/image/math/fixed"
 )
 
-// Label is a widget for laying out and drawing text.
+// Label is text drawn inside an empty box
 type Label struct {
+	*Window
+	// Face defines the text style.
+	font text.Font
+	// Color is the text color.
+	color color.NRGBA
 	// Alignment specify the text alignment.
-	Alignment text.Alignment
+	alignment text.Alignment
 	// MaxLines limits the number of lines. Zero means no limit.
-	MaxLines int
+	maxLines int
+	text     string
+	textSize unit.Value
+	shaper   text.Shaper
 }
 
-type lineIterator struct {
-	Lines     []text.Line
-	Clip      image.Rectangle
-	Alignment text.Alignment
-	Width     int
-	Offset    image.Point
-
-	y, prevDesc fixed.Int26_6
-	txtOff      int
-}
-
-const inf = 1e6
-
-func (l *lineIterator) Next() (int, int, []text.Glyph, f32.Point, bool) {
-	for len(l.Lines) > 0 {
-		line := l.Lines[0]
-		l.Lines = l.Lines[1:]
-		x := align(l.Alignment, line.Width, l.Width) + fixed.I(l.Offset.X)
-		l.y += l.prevDesc + line.Ascent
-		l.prevDesc = line.Descent
-		// Align baseline and line start to the pixel grid.
-		off := fixed.Point26_6{X: fixed.I(x.Floor()), Y: fixed.I(l.y.Ceil())}
-		l.y = off.Y
-		off.Y += fixed.I(l.Offset.Y)
-		if (off.Y + line.Bounds.Min.Y).Floor() > l.Clip.Max.Y {
-			break
-		}
-		layout := line.Layout
-		start := l.txtOff
-		l.txtOff += line.Len
-		if (off.Y + line.Bounds.Max.Y).Ceil() < l.Clip.Min.Y {
-			continue
-		}
-		for len(layout) > 0 {
-			g := layout[0]
-			adv := g.Advance
-			if (off.X + adv + line.Bounds.Max.X - line.Width).Ceil() >= l.Clip.Min.X {
-				break
-			}
-			off.X += adv
-			layout = layout[1:]
-			start += utf8.RuneLen(g.Rune)
-		}
-		end := start
-		endx := off.X
-		for i, g := range layout {
-			if (endx + line.Bounds.Min.X).Floor() > l.Clip.Max.X {
-				layout = layout[:i]
-				break
-			}
-			end += utf8.RuneLen(g.Rune)
-			endx += g.Advance
-		}
-		offf := f32.Point{X: float32(off.X) / 64, Y: float32(off.Y) / 64}
-		return start, end, layout, offf, true
+// Label creates a label that prints a block of text
+func (w *Window) Label() (l *Label) {
+	var f text.Font
+	var e error
+	var fon text.Font
+	if fon, e = w.Theme.collection.Font("plan9"); !E.Chk(e) {
+		f = fon
 	}
-	return 0, 0, nil, f32.Point{}, false
-}
-
-func (l Label) Layout(gtx *layout.Context, s text.Shaper, font text.Font, size unit.Value, txt string) {
-	cs := gtx.Constraints
-	textSize := fixed.I(gtx.Px(size))
-	lines := s.LayoutString(font, textSize, cs.Width.Max, txt)
-	if max := l.MaxLines; max > 0 && len(lines) > max {
-		lines = lines[:max]
-	}
-	dims := linesDimens(lines)
-	dims.Size = cs.Constrain(dims.Size)
-	clip := textPadding(lines)
-	clip.Max = clip.Max.Add(dims.Size)
-	it := lineIterator{
-		Lines:     lines,
-		Clip:      clip,
-		Alignment: l.Alignment,
-		Width:     dims.Size.X,
-	}
-	for {
-		start, end, layout, off, ok := it.Next()
-		if !ok {
-			break
-		}
-		lclip := toRectF(clip).Sub(off)
-		var stack op.StackOp
-		stack.Push(gtx.Ops)
-		op.TransformOp{}.Offset(off).Add(gtx.Ops)
-		str := txt[start:end]
-		s.ShapeString(font, textSize, str, layout).Add(gtx.Ops)
-		paint.PaintOp{Rect: lclip}.Add(gtx.Ops)
-		stack.Pop()
-	}
-	gtx.Dimensions = dims
-}
-
-func toRectF(r image.Rectangle) f32.Rectangle {
-	return f32.Rectangle{
-		Min: f32.Point{X: float32(r.Min.X), Y: float32(r.Min.Y)},
-		Max: f32.Point{X: float32(r.Max.X), Y: float32(r.Max.Y)},
+	return &Label{
+		Window:   w,
+		text:     "",
+		font:     f,
+		color:    w.Colors.GetNRGBAFromName("DocText"),
+		textSize: unit.Sp(1),
+		shaper:   w.shaper,
 	}
 }
 
-func textPadding(lines []text.Line) (padding image.Rectangle) {
-	if len(lines) == 0 {
-		return
+// Text sets the text to render in the label
+func (l *Label) Text(text string) *Label {
+	l.text = text
+	return l
+}
+
+// TextScale sets the size of the text relative to the base font size
+func (l *Label) TextScale(scale float32) *Label {
+	l.textSize = l.Theme.TextSize.Scale(scale)
+	return l
+}
+
+// MaxLines sets the maximum number of lines to render
+func (l *Label) MaxLines(maxLines int) *Label {
+	l.maxLines = maxLines
+	return l
+}
+
+// Alignment sets the text alignment, left, right or centered
+func (l *Label) Alignment(alignment text.Alignment) *Label {
+	l.alignment = alignment
+	return l
+}
+
+// Color sets the color of the label font
+func (l *Label) Color(color string) *Label {
+	l.color = l.Theme.Colors.GetNRGBAFromName(color)
+	return l
+}
+
+// Font sets the font out of the available font collection
+func (l *Label) Font(font string) *Label {
+	var e error
+	var fon text.Font
+	if fon, e = l.Theme.collection.Font(font); !E.Chk(e) {
+		l.font = fon
 	}
-	first := lines[0]
-	if d := first.Ascent + first.Bounds.Min.Y; d < 0 {
-		padding.Min.Y = d.Ceil()
-	}
-	last := lines[len(lines)-1]
-	if d := last.Bounds.Max.Y - last.Descent; d > 0 {
-		padding.Max.Y = d.Ceil()
-	}
-	if d := first.Bounds.Min.X; d < 0 {
-		padding.Min.X = d.Ceil()
-	}
-	if d := first.Bounds.Max.X - first.Width; d > 0 {
-		padding.Max.X = d.Ceil()
-	}
+	return l
+}
+
+// ScaleType is a map of the set of label txsizes
+type ScaleType map[string]float32
+
+// Scales is the ratios against
+//
+// TODO: shouldn't that 16.0 be the text size in the theme?
+var Scales = ScaleType{
+	"H1":      96.0 / 16.0,
+	"H2":      60.0 / 16.0,
+	"H3":      48.0 / 16.0,
+	"H4":      34.0 / 16.0,
+	"H5":      24.0 / 16.0,
+	"H6":      20.0 / 16.0,
+	"Body1":   1,
+	"Body2":   14.0 / 16.0,
+	"Caption": 12.0 / 16.0,
+}
+
+// H1 header 1
+func (w *Window) H1(txt string) (l *Label) {
+	l = w.Label().TextScale(Scales["H1"]).Font("plan9").Text(txt)
 	return
 }
 
-func linesDimens(lines []text.Line) layout.Dimensions {
-	var width fixed.Int26_6
-	var h int
-	var baseline int
-	if len(lines) > 0 {
-		baseline = lines[0].Ascent.Ceil()
-		var prevDesc fixed.Int26_6
-		for _, l := range lines {
-			h += (prevDesc + l.Ascent).Ceil()
-			prevDesc = l.Descent
-			if l.Width > width {
-				width = l.Width
-			}
-		}
-		h += lines[len(lines)-1].Descent.Ceil()
-	}
-	w := width.Ceil()
-	return layout.Dimensions{
-		Size: image.Point{
-			X: w,
-			Y: h,
-		},
-		Baseline: h - baseline,
-	}
+// H2 header 2
+func (w *Window) H2(txt string) (l *Label) {
+	l = w.Label().TextScale(Scales["H2"]).Font("plan9").Text(txt)
+	return
 }
 
-func align(align text.Alignment, width fixed.Int26_6, maxWidth int) fixed.Int26_6 {
-	mw := fixed.I(maxWidth)
-	switch align {
-	case text.Middle:
-		return fixed.I(((mw - width) / 2).Floor())
-	case text.End:
-		return fixed.I((mw - width).Floor())
-	case text.Start:
-		return 0
-	default:
-		panic(fmt.Errorf("unknown alignment %v", align))
-	}
+// H3 header 3
+func (w *Window) H3(txt string) (l *Label) {
+	l = w.Label().TextScale(Scales["H3"]).Font("plan9").Text(txt)
+	return
+}
+
+// H4 header 4
+func (w *Window) H4(txt string) (l *Label) {
+	l = w.Label().TextScale(Scales["H4"]).Font("plan9").Text(txt)
+	return
+}
+
+// H5 header 5
+func (w *Window) H5(txt string) (l *Label) {
+	l = w.Label().TextScale(Scales["H5"]).Font("plan9").Text(txt)
+	return
+}
+
+// H6 header 6
+func (w *Window) H6(txt string) (l *Label) {
+	l = w.Label().TextScale(Scales["H6"]).Font("plan9").Text(txt)
+	return
+}
+
+// Body1 normal body text 1
+func (w *Window) Body1(txt string) (l *Label) {
+	l = w.Label().TextScale(Scales["Body1"]).Font("bariol regular").Text(txt)
+	return
+}
+
+// Body2 normal body text 2
+func (w *Window) Body2(txt string) (l *Label) {
+	l = w.Label().TextScale(Scales["Body2"]).Font("bariol regular").Text(txt)
+	return
+}
+
+// Caption caption text
+func (w *Window) Caption(txt string) (l *Label) {
+	l = w.Label().TextScale(Scales["Caption"]).Font("bariol regular").Text(txt)
+	return
+}
+
+// Fn renders the label as specified
+func (l *Label) Fn(gtx l.Context) l.Dimensions {
+	paint.ColorOp{Color: l.color}.Add(gtx.Ops)
+	tl := Text{alignment: l.alignment, maxLines: l.maxLines}
+	return tl.Fn(gtx, l.shaper, l.font, l.textSize, l.text)
 }

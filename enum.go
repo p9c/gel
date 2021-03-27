@@ -1,14 +1,38 @@
 package gel
 
 import (
+	"image"
+
 	"gioui.org/gesture"
+	"gioui.org/io/pointer"
 	"gioui.org/layout"
+	"gioui.org/op"
 )
 
 type Enum struct {
-	clicks []gesture.Click
-	values []string
-	value  string
+	value   string
+	changed bool
+	clicks  []gesture.Click
+	values  []string
+	hook    func(value string)
+}
+
+func (w *Window) Enum() *Enum {
+	return &Enum{hook: func(string) {}}
+}
+
+func (e *Enum) Value() string {
+	return e.value
+}
+
+func (e *Enum) SetValue(value string) *Enum {
+	e.value = value
+	return e
+}
+
+func (e *Enum) SetOnChange(hook func(value string)) *Enum {
+	e.hook = hook
+	return e
 }
 
 func index(vs []string, t string) int {
@@ -20,32 +44,37 @@ func index(vs []string, t string) int {
 	return -1
 }
 
-// Value processes events and returns the last selected value, or
-// the empty string.
-func (e *Enum) Value(gtx *layout.Context) string {
-	for i := range e.clicks {
-		for _, ev := range e.clicks[i].Events(gtx) {
+// Changed reports whether Value has changed by user interaction since the last call to Changed.
+func (e *Enum) Changed() bool {
+	changed := e.changed
+	e.changed = false
+	return changed
+}
+
+// Fn adds the event handler for key.
+func (e *Enum) Fn(gtx layout.Context, key string) layout.Dimensions {
+	defer op.Push(gtx.Ops).Pop()
+	pointer.Rect(image.Rectangle{Max: gtx.Constraints.Min}).Add(gtx.Ops)
+
+	if index(e.values, key) == -1 {
+		e.values = append(e.values, key)
+		e.clicks = append(e.clicks, gesture.Click{})
+		e.clicks[len(e.clicks)-1].Add(gtx.Ops)
+	} else {
+		idx := index(e.values, key)
+		clk := &e.clicks[idx]
+		for _, ev := range clk.Events(gtx) {
 			switch ev.Type {
 			case gesture.TypeClick:
-				e.value = e.values[i]
+				if niew := e.values[idx]; niew != e.value {
+					e.value = niew
+					e.changed = true
+					e.hook(e.value)
+				}
 			}
 		}
+		clk.Add(gtx.Ops)
 	}
-	return e.value
-}
 
-// Layout adds the event handler for key.
-func (rg *Enum) Layout(gtx *layout.Context, key string) {
-	if index(rg.values, key) == -1 {
-		rg.values = append(rg.values, key)
-		rg.clicks = append(rg.clicks, gesture.Click{})
-		rg.clicks[len(rg.clicks)-1].Add(gtx.Ops)
-	} else {
-		idx := index(rg.values, key)
-		rg.clicks[idx].Add(gtx.Ops)
-	}
-}
-
-func (rg *Enum) SetValue(value string) {
-	rg.value = value
+	return layout.Dimensions{Size: gtx.Constraints.Min}
 }

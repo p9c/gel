@@ -17,17 +17,23 @@ type editBuffer struct {
 	caret int
 	// pos is the byte position for Read and ReadRune.
 	pos int
-
+	
 	// The gap start and end in bytes.
 	gapstart, gapend int
 	text             []byte
-
+	
 	// changed tracks whether the buffer content
 	// has changed since the last call to Changed.
 	changed bool
 }
 
 const minSpace = 5
+
+func (e *editBuffer) Zero() {
+	for i := range e.text {
+		e.text[i] = 0
+	}
+}
 
 func (e *editBuffer) Changed() bool {
 	c := e.changed
@@ -150,18 +156,6 @@ func (e *editBuffer) dump() {
 	if bufferDebug {
 		fmt.Printf("len(e.text) %d e.len() %d e.gapstart %d e.gapend %d e.caret %d txt:\n'%+x'<-%d->'%+x'\n", len(e.text), e.len(), e.gapstart, e.gapend, e.caret, e.text[:e.gapstart], e.gapLen(), e.text[e.gapend:])
 	}
-}
-
-func (e *editBuffer) move(runes int) {
-	for ; runes < 0 && e.caret > 0; runes++ {
-		_, s := e.runeBefore(e.caret)
-		e.caret -= s
-	}
-	for ; runes > 0 && e.caret < len(e.text); runes-- {
-		_, s := e.runeAt(e.caret)
-		e.caret += s
-	}
-	e.dump()
 }
 
 func (e *editBuffer) runeBefore(idx int) (rune, int) {
