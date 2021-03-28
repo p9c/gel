@@ -8,7 +8,7 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/unit"
 	
-	"github.com/p9c/pod/pkg/gui/f32color"
+	"github.com/p9c/gel/f32color"
 )
 
 type ButtonLayout struct {

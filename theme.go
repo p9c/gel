@@ -4,7 +4,7 @@ import (
 	"gioui.org/text"
 	"gioui.org/unit"
 	
-	"github.com/p9c/pod/pkg/util/qu"
+	"github.com/p9c/qu"
 )
 
 type Theme struct {

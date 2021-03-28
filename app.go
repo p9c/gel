@@ -9,8 +9,6 @@ import (
 	l "gioui.org/layout"
 	"gioui.org/text"
 	"gioui.org/unit"
-	
-	p9icons "github.com/p9c/pod/pkg/icons/svg"
 )
 
 // App defines an application with a header, sidebar/menu, right side button bar, changeable body page widget and
@@ -79,9 +77,9 @@ func (w *Window) App(size *int, activePage *uberatomic.String, invalidate chan s
 		statusBarBackground: "DocBg",
 		statusBarColor:      "DocText",
 		sideBarList:         w.List(),
-		Logo:                &p9icons.ParallelCoin,
+		Logo:                &icons.ActionSettingsApplications,
 		LogoClickable:       w.Clickable(),
-		title:               "Parallelcoin Wallet",
+		title:               "gio elements application",
 		titleBarBackground:  "Primary",
 		titleBarColor:       "DocBg",
 		titleFont:           "plan9",

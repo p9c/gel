@@ -1,7 +1,7 @@
 package gel
 
 import (
-	"github.com/p9c/pod/pkg/logg"
+	logg "github.com/p9c/log"
 )
 
 var subsystem = logg.AddLoggerSubsystem()

@@ -9,7 +9,7 @@ import (
 	"gioui.org/text"
 	"gioui.org/unit"
 	
-	"github.com/p9c/pod/pkg/gui/f32color"
+	"github.com/p9c/gel/f32color"
 )
 
 // TextInput is a simple text input widget

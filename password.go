@@ -5,7 +5,7 @@ import (
 	
 	l "gioui.org/layout"
 	
-	"github.com/p9c/pod/pkg/gui/clipboard"
+	"github.com/p9c/gel/clipboard"
 )
 
 type Password struct {

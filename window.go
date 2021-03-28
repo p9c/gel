@@ -6,8 +6,8 @@ import (
 	
 	"gioui.org/io/event"
 	
-	"github.com/p9c/pod/pkg/fonts/p9fonts"
-	"github.com/p9c/pod/pkg/util/qu"
+	"github.com/p9c/gel/fonts/p9fonts"
+	"github.com/p9c/qu"
 	
 	"gioui.org/app"
 	"gioui.org/io/system"
