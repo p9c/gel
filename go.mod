@@ -7,8 +7,8 @@ require (
 	github.com/BurntSushi/xgb v0.0.0-20200324125942-20f126ea2843
 	github.com/atotto/clipboard v0.1.4
 	github.com/davecgh/go-spew v1.1.1
-	github.com/p9c/log v0.0.4
-	github.com/p9c/qu v0.0.1
+	github.com/p9c/log v0.0.6
+	github.com/p9c/qu v0.0.3
 	github.com/urfave/cli v1.22.5
 	go.uber.org/atomic v1.7.0
 	golang.org/x/exp v0.0.0-20200924195034-c827fd4f18b9
