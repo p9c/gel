@@ -37,8 +37,8 @@ func (tt *TextTable) Regenerate(fully bool) {
 	}
 	// // set defaults if unset
 	tt.SetDefaults()
-	if tt.Table.header == nil || len(tt.Table.header) < 1 || tt.HeaderDarkTheme != *tt.Theme.Dark {
-		tt.HeaderDarkTheme = *tt.Theme.Dark
+	if tt.Table.header == nil || len(tt.Table.header) < 1 || tt.HeaderDarkTheme != tt.Theme.Dark.True() {
+		tt.HeaderDarkTheme = tt.Theme.Dark.True()
 		// if this is being regenerated due to theme change
 		tt.Table.header = tt.Table.header[:0]
 		// this only has to be created once

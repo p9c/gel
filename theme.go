@@ -3,7 +3,7 @@ package gel
 import (
 	"gioui.org/text"
 	"gioui.org/unit"
-	
+	"github.com/p9c/opts/binary"
 	"github.com/p9c/qu"
 )
 
@@ -15,14 +15,13 @@ type Theme struct {
 	*Colors
 	icons         map[string]*Icon
 	scrollBarSize int
-	Dark          *bool
+	Dark          *binary.Opt
 	iconCache     IconCache
 	WidgetPool    *Pool
 }
 
 // NewTheme creates a new theme to use for rendering a user interface
-func NewTheme(fontCollection []text.FontFace, quit qu.C) (th *Theme) {
-	dark := false
+func NewTheme(dark *binary.Opt, fontCollection []text.FontFace, quit qu.C) (th *Theme) {
 	th = &Theme{
 		quit:          quit,
 		shaper:        text.NewCache(fontCollection),
@@ -31,7 +30,7 @@ func NewTheme(fontCollection []text.FontFace, quit qu.C) (th *Theme) {
 		Colors:        newColors(),
 		scrollBarSize: 0,
 		iconCache:     make(IconCache),
-		Dark:          &dark,
 	}
+	th.SetDarkTheme(dark.True())
 	return
 }

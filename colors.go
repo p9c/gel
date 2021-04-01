@@ -168,8 +168,8 @@ func newColors() (c *Colors) {
 	return c
 }
 
-// SetTheme to dark or light
-func (c *Colors) SetTheme(dark bool) {
+// SetDarkTheme to dark or light
+func (c *Colors) SetDarkTheme(dark bool) {
 	c.Lock()
 	defer c.Unlock()
 	if !dark {

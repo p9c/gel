@@ -3,7 +3,7 @@ package gel
 import (
 	"fmt"
 	
-	uberatomic "go.uber.org/atomic"
+	"go.uber.org/atomic"
 	"golang.org/x/exp/shiny/materialdesign/icons"
 	
 	l "gioui.org/layout"
@@ -15,7 +15,7 @@ import (
 // pop-over layers
 type App struct {
 	*Window
-	activePage          *uberatomic.String
+	activePage          *atomic.String
 	invalidate          chan struct{}
 	bodyBackground      string
 	bodyColor           string
@@ -57,7 +57,7 @@ type App struct {
 
 type WidgetMap map[string]l.Widget
 
-func (w *Window) App(size *int, activePage *uberatomic.String, invalidate chan struct{}, Break1 float32,) *App {
+func (w *Window) App(size *int, activePage *atomic.String, invalidate chan struct{}, Break1 float32,) *App {
 	mc := w.Clickable()
 	a := &App{
 		Window:              w,
@@ -302,8 +302,8 @@ func (a *App) LogoAndTitle(gtx l.Context) l.Dimensions {
 											SetClick(
 												func() {
 													D.Ln("clicked logo")
-													*a.Theme.Dark = !*a.Theme.Dark
-													a.Theme.Colors.SetTheme(*a.Theme.Dark)
+													a.Theme.Dark.Flip()
+													a.Theme.Colors.SetDarkTheme(a.Theme.Dark.True())
 													a.ThemeHook()
 												},
 											),
@@ -338,8 +338,8 @@ func (a *App) LogoAndTitle(gtx l.Context) l.Dimensions {
 											SetClick(
 												func() {
 													D.Ln("clicked logo")
-													*a.Theme.Dark = !*a.Theme.Dark
-													a.Theme.Colors.SetTheme(*a.Theme.Dark)
+													a.Theme.Dark.Flip()
+													a.Theme.Colors.SetDarkTheme(a.Theme.Dark.True())
 													a.ThemeHook()
 												},
 											),
@@ -379,7 +379,7 @@ func (a *App) LogoAndTitle(gtx l.Context) l.Dimensions {
 	// 									func() {
 	// 										D.Ln("clicked logo")
 	// 										*a.Dark = !*a.Dark
-	// 										a.Theme.Colors.SetTheme(*a.Dark)
+	// 										a.Theme.Colors.SetDarkTheme(*a.Dark)
 	// 										a.themeHook()
 	// 									},
 	// 								),
@@ -511,7 +511,7 @@ func (a *App) ActivePage(activePage string) *App {
 func (a *App) ActivePageGet() string {
 	return a.activePage.Load()
 }
-func (a *App) ActivePageGetAtomic() *uberatomic.String {
+func (a *App) ActivePageGetAtomic() *atomic.String {
 	return a.activePage
 }
 

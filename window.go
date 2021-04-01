@@ -1,12 +1,14 @@
 package gel
 
 import (
+	"github.com/p9c/gel/fonts/p9fonts"
+	"github.com/p9c/opts/binary"
+	"github.com/p9c/opts/meta"
 	"math"
 	"time"
 	
 	"gioui.org/io/event"
 	
-	"github.com/p9c/gel/fonts/p9fonts"
 	"github.com/p9c/qu"
 	
 	"gioui.org/app"
@@ -71,10 +73,13 @@ func (w *Window) Overlay(gtx l.Context) {
 // NewWindowP9 creates a new window
 func NewWindowP9(quit chan struct{}) (out *Window) {
 	out = &Window{
-		Theme:  NewTheme(p9fonts.Collection(), quit),
 		scale:  &scaledConfig{1},
 		Runner: NewCallbackQueue(32),
 	}
+	out.Theme = NewTheme(
+		binary.New(meta.Data{}, false, out.Theme.SetDarkTheme),
+		p9fonts.Collection(), quit,
+	)
 	out.Theme.WidgetPool = out.NewPool()
 	return
 }

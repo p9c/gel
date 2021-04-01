@@ -9,12 +9,12 @@ var (
 	// GitRef is the gitref, as in refs/heads/branchname
 	GitRef = "refs/heads/master"
 	// GitCommit is the commit hash of the current HEAD
-	GitCommit = "6a195b1e804ea3e187c5bd4ad92c22320b859616"
+	GitCommit = "8ee24b3368eab581fb5e15e35257bdecc80e3921"
 	// BuildTime stores the time when the current binary was built
-	BuildTime = "2021-03-28T01:36:56+01:00"
+	BuildTime = "2021-04-01T06:22:04+02:00"
 	// Tag lists the Tag on the build, adding a + to the newest Tag if the commit is
 	// not that commit
-	Tag = "v0.1.0+"
+	Tag = "v0.1.2"
 	// PathBase is the path base returned from runtime caller
 	PathBase = "/home/loki/src/github.com/p9c/gel/"
 )
