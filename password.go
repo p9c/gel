@@ -1,6 +1,7 @@
 package gel
 
 import (
+	"github.com/p9c/opts/text"
 	icons2 "golang.org/x/exp/shiny/materialdesign/icons"
 	
 	l "gioui.org/layout"
@@ -25,12 +26,12 @@ type Password struct {
 	backgroundColor      string
 	focused              bool
 	showClickableFn      func(col string)
-	password             *string
+	password             *text.Opt
 	handle               func(pass string)
 }
 
 func (w *Window) Password(
-	hint string, password *string, borderColorFocused,
+	hint string, password *text.Opt, borderColorFocused,
 	borderColorUnfocused, backgroundColor string, handle func(pass string),
 ) *Password {
 	pass := w.Editor().Mask('•').SingleLine().Submit(true)
@@ -114,7 +115,7 @@ func (w *Window) Password(
 	p.passInput.editor.Mask('•')
 	p.hide = true
 	p.passInput.Color(p.borderColor)
-	p.pass.SetText(*p.password).Mask('•').SetSubmit(
+	p.pass.SetText(p.password.V()).Mask('•').SetSubmit(
 		func(txt string) {
 			// if !p.hide {
 			// 	p.showClickableFn(p.borderColor)
