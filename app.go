@@ -27,7 +27,7 @@ type App struct {
 	layers              []l.Widget
 	Logo                *[]byte
 	LogoClickable       *Clickable
-	ThemeHook           func()
+	// ThemeHook           func()
 	menuBackground      string
 	menuButton          *IconButton
 	menuClickable       *Clickable
@@ -304,7 +304,6 @@ func (a *App) LogoAndTitle(gtx l.Context) l.Dimensions {
 													D.Ln("clicked logo")
 													a.Theme.Dark.Flip()
 													a.Theme.Colors.SetDarkTheme(a.Theme.Dark.True())
-													a.ThemeHook()
 												},
 											),
 									).
@@ -340,7 +339,6 @@ func (a *App) LogoAndTitle(gtx l.Context) l.Dimensions {
 													D.Ln("clicked logo")
 													a.Theme.Dark.Flip()
 													a.Theme.Colors.SetDarkTheme(a.Theme.Dark.True())
-													a.ThemeHook()
 												},
 											),
 									).
@@ -697,11 +695,11 @@ func (a *App) TitleFontGet() string {
 func (a *App) TitleGet() string {
 	return a.title
 }
-
-func (a *App) SetThemeHook(f func()) *App {
-	a.ThemeHook = f
-	return a
-}
+//
+// func (a *App) SetThemeHook(f func()) *App {
+// 	a.ThemeHook = f
+// 	return a
+// }
 
 func (a *App) Placeholder(title string) func(gtx l.Context) l.Dimensions {
 	return func(gtx l.Context) l.Dimensions {
