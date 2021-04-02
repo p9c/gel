@@ -61,13 +61,12 @@ func (s *Switch) Fn(gtx l.Context) l.Dimensions {
 		trackOff := float32(thumbSize-trackHeight) * .5
 		
 		// Draw track.
-		stack := op.Save(gtx.Ops)
+		stack := op.Push(gtx.Ops)
 		trackCorner := float32(trackHeight) / 2
 		trackRect := f32.Rectangle{Max: f32.Point{
 			X: float32(trackWidth),
 			Y: float32(trackHeight),
-		},
-		}
+		}}
 		col := s.color.disabled
 		if s.swtch.value {
 			col = s.color.enabled
@@ -83,10 +82,10 @@ func (s *Switch) Fn(gtx l.Context) l.Dimensions {
 		}.Add(gtx.Ops)
 		paint.ColorOp{Color: trackColor}.Add(gtx.Ops)
 		paint.PaintOp{}.Add(gtx.Ops)
-		stack.Load()
+		stack.Pop()
 		
 		// Draw thumb ink.
-		stack = op.Save(gtx.Ops)
+		stack = op.Push(gtx.Ops)
 		inkSize := gtx.Px(unit.Dp(44))
 		rr := float32(inkSize) * .5
 		inkOff := f32.Point{
@@ -104,10 +103,10 @@ func (s *Switch) Fn(gtx l.Context) l.Dimensions {
 		for _, p := range s.swtch.History() {
 			drawInk(gtx, p)
 		}
-		stack.Load()
+		stack.Pop()
 		
 		// Compute thumb offset and color.
-		stack = op.Save(gtx.Ops)
+		stack = op.Push(gtx.Ops)
 		if s.swtch.value {
 			off := trackWidth - thumbSize
 			op.Offset(f32.Point{X: float32(off)}).Add(gtx.Ops)
@@ -115,19 +114,19 @@ func (s *Switch) Fn(gtx l.Context) l.Dimensions {
 		
 		// Draw thumb shadow, a translucent disc slightly larger than the
 		// thumb itself.
-		shadowStack := op.Save(gtx.Ops)
+		shadowStack := op.Push(gtx.Ops)
 		shadowSize := float32(2)
 		// Center shadow horizontally and slightly adjust its Y.
 		op.Offset(f32.Point{X: -shadowSize / 2, Y: -.75}).Add(gtx.Ops)
 		drawDisc(gtx.Ops, float32(thumbSize)+shadowSize, color.NRGBA(argb(0x55000000)))
-		shadowStack.Load()
+		shadowStack.Pop()
 		
 		// Draw thumb.
 		drawDisc(gtx.Ops, float32(thumbSize), col)
-		stack.Load()
+		stack.Pop()
 		
 		// Set up click area.
-		stack = op.Save(gtx.Ops)
+		stack = op.Push(gtx.Ops)
 		clickSize := gtx.Px(unit.Dp(40))
 		clickOff := f32.Point{
 			X: (float32(trackWidth) - float32(clickSize)) * .5,
@@ -138,16 +137,15 @@ func (s *Switch) Fn(gtx l.Context) l.Dimensions {
 		pointer.Ellipse(image.Rectangle{Max: sz}).Add(gtx.Ops)
 		gtx.Constraints.Min = sz
 		s.swtch.Fn(gtx)
-		stack.Load()
+		stack.Pop()
 		
 		dims := image.Point{X: trackWidth, Y: thumbSize}
 		return l.Dimensions{Size: dims}
-	},
-	).Fn(gtx)
+	}).Fn(gtx)
 }
 
 func drawDisc(ops *op.Ops, sz float32, col color.NRGBA) {
-	defer op.Save(ops).Load()
+	defer op.Push(ops).Pop()
 	rr := sz / 2
 	r := f32.Rectangle{Max: f32.Point{X: sz, Y: sz}}
 	clip.RRect{

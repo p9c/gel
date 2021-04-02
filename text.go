@@ -1,6 +1,7 @@
 package gel
 
 import (
+	"fmt"
 	"image"
 	"unicode/utf8"
 	
@@ -100,6 +101,32 @@ func (l *lineIterator) Next() (text.Layout, image.Point, bool) {
 	return text.Layout{}, image.Point{}, false
 }
 
+func linesDimens(lines []text.Line) layout.Dimensions {
+	var width fixed.Int26_6
+	var h int
+	var baseline int
+	if len(lines) > 0 {
+		baseline = lines[0].Ascent.Ceil()
+		var prevDesc fixed.Int26_6
+		for _, l := range lines {
+			h += (prevDesc + l.Ascent).Ceil()
+			prevDesc = l.Descent
+			if l.Width > width {
+				width = l.Width
+			}
+		}
+		h += lines[len(lines)-1].Descent.Ceil()
+	}
+	w := width.Ceil()
+	return layout.Dimensions{
+		Size: image.Point{
+			X: w,
+			Y: h,
+		},
+		Baseline: h - baseline,
+	}
+}
+
 func (t *Text) Fn(gtx layout.Context, s text.Shaper, font text.Font, size unit.Value, txt string) layout.Dimensions {
 	cs := gtx.Constraints
 	textSize := fixed.I(gtx.Px(size))
@@ -111,23 +138,58 @@ func (t *Text) Fn(gtx layout.Context, s text.Shaper, font text.Font, size unit.V
 	dims.Size = cs.Constrain(dims.Size)
 	cl := textPadding(lines)
 	cl.Max = cl.Max.Add(dims.Size)
-	it := segmentIterator{
+	it := lineIterator{
 		Lines:     lines,
 		Clip:      cl,
 		Alignment: t.alignment,
 		Width:     dims.Size.X,
 	}
 	for {
-		l, off, _, _, _, ok := it.Next()
+		l, off, ok := it.Next()
 		if !ok {
 			break
 		}
-		stack := op.Save(gtx.Ops)
+		stack := op.Push(gtx.Ops)
 		op.Offset(layout.FPt(off)).Add(gtx.Ops)
 		s.Shape(font, textSize, l).Add(gtx.Ops)
 		clip.Rect(cl.Sub(off)).Add(gtx.Ops)
 		paint.PaintOp{}.Add(gtx.Ops)
-		stack.Load()
+		stack.Pop()
 	}
 	return dims
+}
+
+func textPadding(lines []text.Line) (padding image.Rectangle) {
+	if len(lines) == 0 {
+		return
+	}
+	first := lines[0]
+	if d := first.Ascent + first.Bounds.Min.Y; d < 0 {
+		padding.Min.Y = d.Ceil()
+	}
+	last := lines[len(lines)-1]
+	if d := last.Bounds.Max.Y - last.Descent; d > 0 {
+		padding.Max.Y = d.Ceil()
+	}
+	if d := first.Bounds.Min.X; d < 0 {
+		padding.Min.X = d.Ceil()
+	}
+	if d := first.Bounds.Max.X - first.Width; d > 0 {
+		padding.Max.X = d.Ceil()
+	}
+	return
+}
+
+func align(align text.Alignment, width fixed.Int26_6, maxWidth int) fixed.Int26_6 {
+	mw := fixed.I(maxWidth)
+	switch align {
+	case text.Middle:
+		return fixed.I(((mw - width) / 2).Floor())
+	case text.End:
+		return fixed.I((mw - width).Floor())
+	case text.Start:
+		return 0
+	default:
+		panic(fmt.Errorf("unknown alignment %v", align))
+	}
 }

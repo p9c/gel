@@ -69,7 +69,7 @@ func (w *Window) Input(
 		p.editor.Focus()
 	}
 	pasteClickableFn := func() {
-		col := p.editor.caret.start.lineCol.X
+		col := p.editor.Caret.Col
 		if p.SetPasteFunc != nil {
 			if p.SetPasteFunc() {
 				return
@@ -87,7 +87,7 @@ func (w *Window) Input(
 		cb = findSpaceRegexp.ReplaceAllString(cb, " ")
 		txt = txt[:col] + cb + txt[col:]
 		p.editor.SetText(txt)
-		p.editor.MoveCaret(col + len(cb),0)
+		p.editor.Move(col + len(cb))
 		p.editor.Focus()
 		p.editor.changeHook(txt)
 	}

@@ -1,5 +1,3 @@
-// SPDX-License-Identifier: Unlicense OR MIT
-
 package gel
 
 import (
@@ -10,18 +8,12 @@ import (
 	"gioui.org/gesture"
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
-	"gioui.org/layout"
+	l "gioui.org/layout"
 	"gioui.org/op"
 )
 
 type clickEvents struct {
 	Click, Cancel, Press func()
-}
-
-// click represents a click.
-type click struct {
-	Modifiers key.Modifiers
-	NumClicks int
 }
 
 // Clickable represents a clickable area.
@@ -32,7 +24,7 @@ type Clickable struct {
 	// prevClicks is the index into clicks that marks the clicks from the most recent Fn call. prevClicks is used to
 	// keep clicks bounded.
 	prevClicks int
-	history    []Press
+	history    []press
 	Events     clickEvents
 }
 
@@ -73,35 +65,26 @@ func (c *Clickable) SetPress(fn func()) *Clickable {
 	return c
 }
 
-// Click represents a click.
-type Click struct {
+// click represents a click.
+type click struct {
 	Modifiers key.Modifiers
 	NumClicks int
 }
 
-// Press represents a past pointer press.
-type Press struct {
+// press represents a past pointer press.
+type press struct {
 	// Position of the press.
 	Position f32.Point
 	// Start is when the press began.
 	Start time.Time
-	// End is when the press was ended by a release or cancel.
-	// A zero End means it hasn't ended yet.
+	// End is when the press was ended by a release or Cancel. A zero End means it hasn't ended yet.
 	End time.Time
 	// Cancelled is true for cancelled presses.
 	Cancelled bool
 }
 
-// Click executes a simple programmatic click
-func (c *Clickable) Click() {
-	c.clicks = append(c.clicks, click{
-		Modifiers: 0,
-		NumClicks: 1,
-	})
-}
-
-// Clicked reports whether there are pending clicks as would be
-// reported by Clicks. If so, Clicked removes the earliest click.
+// Clicked reports whether there are pending clicks as would be reported by Clicks. If so, Clicked removes the earliest
+// click.
 func (c *Clickable) Clicked() bool {
 	if len(c.clicks) == 0 {
 		return false
@@ -114,16 +97,6 @@ func (c *Clickable) Clicked() bool {
 	return true
 }
 
-// Hovered returns whether pointer is over the element.
-func (c *Clickable) Hovered() bool {
-	return c.click.Hovered()
-}
-
-// Pressed returns whether pointer is pressing the element.
-func (c *Clickable) Pressed() bool {
-	return c.click.Pressed()
-}
-
 // Clicks returns and clear the clicks since the last call to Clicks.
 func (c *Clickable) Clicks() []click {
 	clicks := c.clicks
@@ -132,47 +105,48 @@ func (c *Clickable) Clicks() []click {
 	return clicks
 }
 
-// History is the past pointer presses useful for drawing markers.
-// History is retained for a short duration (about a second).
-func (c *Clickable) History() []Press {
+// History is the past pointer presses useful for drawing markers. History is retained for a short duration (about a
+// second).
+func (c *Clickable) History() []press {
 	return c.history
 }
 
-// Layout and update the button state
-func (c *Clickable) Layout(gtx layout.Context) layout.Dimensions {
+func (c *Clickable) Fn(gtx l.Context) l.Dimensions {
 	c.update(gtx)
-	stack := op.Save(gtx.Ops)
+	stack := op.Push(gtx.Ops)
 	pointer.Rect(image.Rectangle{Max: gtx.Constraints.Min}).Add(gtx.Ops)
 	c.click.Add(gtx.Ops)
-	stack.Load()
+	stack.Pop()
 	for len(c.history) > 0 {
-		cl := c.history[0]
-		if cl.End.IsZero() || gtx.Now.Sub(cl.End) < 1*time.Second {
+		cc := c.history[0]
+		if cc.End.IsZero() || gtx.Now.Sub(cc.End) < 1*time.Second {
 			break
 		}
 		n := copy(c.history, c.history[1:])
 		c.history = c.history[:n]
 	}
-	return layout.Dimensions{Size: gtx.Constraints.Min}
+	return l.Dimensions{Size: gtx.Constraints.Min}
 }
 
-// update the button state by processing events.
-func (c *Clickable) update(gtx layout.Context) {
+// update the button changeState by processing clickEvents.
+func (c *Clickable) update(gtx l.Context) {
 	// Flush clicks from before the last update.
 	n := copy(c.clicks, c.clicks[c.prevClicks:])
 	c.clicks = c.clicks[:n]
 	c.prevClicks = n
-	
-	for _, e := range c.click.Events(gtx) {
-		switch e.Type {
+	for _, ev := range c.click.Events(gtx) {
+		switch ev.Type {
 		case gesture.TypeClick:
-			c.clicks = append(c.clicks, click{
-				Modifiers: e.Modifiers,
-				NumClicks: e.NumClicks,
-			})
-			if l := len(c.history); l > 0 {
-				c.history[l-1].End = gtx.Now
+			var clk click
+			clk = click{
+				Modifiers: ev.Modifiers,
+				NumClicks: ev.NumClicks,
 			}
+			c.clicks = append(c.clicks, clk)
+			if ll := len(c.history); ll > 0 {
+				c.history[ll-1].End = gtx.Now
+			}
+			c.Window.Runner <- func() (e error) { c.Events.Click(); return nil }
 		case gesture.TypeCancel:
 			for i := range c.history {
 				c.history[i].Cancelled = true
@@ -180,11 +154,20 @@ func (c *Clickable) update(gtx layout.Context) {
 					c.history[i].End = gtx.Now
 				}
 			}
+			c.Window.Runner <- func() (e error) { c.Events.Cancel(); return nil }
 		case gesture.TypePress:
-			c.history = append(c.history, Press{
-				Position: e.Position,
+			c.history = append(c.history, press{
+				Position: ev.Position,
 				Start:    gtx.Now,
 			})
+			c.
+				Window.
+				Runner <- func() (e error) {
+				c.
+					Events.
+					Press()
+				return nil
+			}
 		}
 	}
 }

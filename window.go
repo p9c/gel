@@ -43,14 +43,14 @@ func (s *scaledConfig) Px(v unit.Value) int {
 type Window struct {
 	*Theme
 	*app.Window
-	opts          []app.Option
-	scale         *scaledConfig
-	Width         int // stores the width at the beginning of render
-	Height        int
-	ops           op.Ops
-	evQ           system.FrameEvent
-	Runner        CallbackQueue
-	overlay       []func(gtx l.Context)
+	opts    []app.Option
+	scale   *scaledConfig
+	Width   int // stores the width at the beginning of render
+	Height  int
+	ops     op.Ops
+	evQ     system.FrameEvent
+	Runner  CallbackQueue
+	overlay []func(gtx l.Context)
 }
 
 func (w *Window) PushOverlay(overlay func(gtx l.Context)) {
@@ -128,9 +128,9 @@ func (w *Window) Open() (out *Window) {
 
 func (w *Window) Run(
 	frame func(ctx l.Context) l.Dimensions,
-	overlay []func(ctx l.Context), destroy func(), quit qu.C,
+	overlay func(ctx l.Context), destroy func(), quit qu.C,
 ) (e error) {
-	go func() {
+	for {
 		select {
 		case fn := <-w.Runner:
 			if e = fn(); E.Chk(e) {
@@ -138,34 +138,68 @@ func (w *Window) Run(
 			}
 		case <-quit.Wait():
 			return
-		}
-	}()
-	for {
-		select {
+			// by repeating selectors we decrease the chance of a runner delaying
+			// a frame event hitting the physical frame deadline
 		case ev := <-w.Window.Events():
 			if e = w.processEvents(ev, frame, destroy); E.Chk(e) {
+				return
 			}
-		case <-quit.Wait():
-			return
+		case ev := <-w.Window.Events():
+			if e = w.processEvents(ev, frame, destroy); E.Chk(e) {
+				return
+			}
+		case ev := <-w.Window.Events():
+			if e = w.processEvents(ev, frame, destroy); E.Chk(e) {
+				return
+			}
+		case ev := <-w.Window.Events():
+			if e = w.processEvents(ev, frame, destroy); E.Chk(e) {
+				return
+			}
+		case ev := <-w.Window.Events():
+			if e = w.processEvents(ev, frame, destroy); E.Chk(e) {
+				return
+			}
+		case ev := <-w.Window.Events():
+			if e = w.processEvents(ev, frame, destroy); E.Chk(e) {
+				return
+			}
+		case ev := <-w.Window.Events():
+			if e = w.processEvents(ev, frame, destroy); E.Chk(e) {
+				return
+			}
+		case ev := <-w.Window.Events():
+			if e = w.processEvents(ev, frame, destroy); E.Chk(e) {
+				return
+			}
+		case ev := <-w.Window.Events():
+			if e = w.processEvents(ev, frame, destroy); E.Chk(e) {
+				return
+			}
 		}
 	}
 }
 
-func (w *Window) processEvents(evt event.Event, frame func(ctx l.Context) l.Dimensions, destroy func()) (e error) {
-	switch ev := evt.(type) {
+func (w *Window) processEvents(e event.Event, frame func(ctx l.Context) l.Dimensions, destroy func()) error {
+	switch e := e.(type) {
 	case system.DestroyEvent:
-		D.Ln("received destroy event", ev.Err)
+		D.Ln("received destroy event", e.Err)
+		// if e.Err != nil {
+		// 	if strings.Contains(e.Err.Error(), "eglCreateWindowSurface failed") {
+		// 		return nil
+		// 	}
+		// }
 		destroy()
-		return ev.Err
+		return e.Err
 	case system.FrameEvent:
 		ops := op.Ops{}
-		c := l.NewContext(&ops, ev)
+		c := l.NewContext(&ops, e)
 		// update dimensions for responsive sizing widgets
 		w.Width = c.Constraints.Max.X
 		w.Height = c.Constraints.Max.Y
 		frame(c)
 		w.Overlay(c)
-		ev.Frame(c.Ops)
+		e.Frame(c.Ops)
 	}
 	return nil
 }

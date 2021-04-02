@@ -19,7 +19,7 @@ func (w *Window) Bool(value bool) *Bool {
 	return &Bool{
 		Window:      w,
 		value:       value,
-		clk:         w.WidgetPool.GetClickable(),
+		clk:         w.Clickable(),
 		changed:     false,
 		changeState: func(b bool) {},
 	}
@@ -49,13 +49,13 @@ func (b *Bool) Changed() bool {
 }
 
 // History returns the history of presses in the buffer
-func (b *Bool) History() []Press {
+func (b *Bool) History() []press {
 	return b.clk.History()
 }
 
 // Fn renders the events of the boolean widget
 func (b *Bool) Fn(gtx layout.Context) layout.Dimensions {
-	dims := b.clk.Layout(gtx)
+	dims := b.clk.Fn(gtx)
 	for b.clk.Clicked() {
 		b.value = !b.value
 		b.changed = true

@@ -53,7 +53,7 @@ func (w *Window) Multiline(
 	for i := range *m.lines {
 		// D.Ln("making clickables")
 		x := i
-		clickable := w.Theme.WidgetPool.GetClickable().SetClick(
+		clickable := m.Clickable().SetClick(
 			func() {
 				m.inputLocation = x
 				D.Ln("button clicked", x, m.inputLocation)

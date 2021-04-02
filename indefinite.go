@@ -1,7 +1,6 @@
 package gel
 
 import (
-	"gioui.org/unit"
 	"image"
 	"image/color"
 	"math"
@@ -47,27 +46,28 @@ func (lo *Indefinite) Fn(gtx l.Context) l.Dimensions {
 		diam = minY
 	}
 	if diam == 0 {
-		diam = gtx.Px(unit.Dp(24))
+		diam = gtx.Px(lo.Theme.TextSize.Scale(lo.scale))
 	}
 	sz := gtx.Constraints.Constrain(image.Pt(diam, diam))
 	radius := float64(sz.X) * .5
-	defer op.Save(gtx.Ops).Load()
+	defer op.Push(gtx.Ops).Pop()
 	op.Offset(f32.Pt(float32(radius), float32(radius))).Add(gtx.Ops)
-	
 	dt := (time.Duration(gtx.Now.UnixNano()) % (time.Second)).Seconds()
 	startAngle := dt * math.Pi * 2
 	endAngle := startAngle + math.Pi*1.5
-	
 	clipLoader(gtx.Ops, startAngle, endAngle, radius)
 	paint.ColorOp{
 		Color: lo.color,
 	}.Add(gtx.Ops)
 	op.Offset(f32.Pt(-float32(radius), -float32(radius))).Add(gtx.Ops)
-	paint.PaintOp{}.Add(gtx.Ops)
+	paint.PaintOp{
+		// Rect: f32.Rectangle{Max: l.FPt(sz)},
+	}.Add(gtx.Ops)
 	op.InvalidateOp{}.Add(gtx.Ops)
 	return l.Dimensions{
 		Size: sz,
-	}}
+	}
+}
 
 func clipLoader(ops *op.Ops, startAngle, endAngle, radius float64) {
 	const thickness = .25
