@@ -58,11 +58,11 @@ func (b *Border) Embed(w layout.Widget) *Border {
 
 // Fn renders the border
 func (b *Border) Fn(gtx layout.Context) layout.Dimensions {
-	dims := w(gtx)
+	dims := b.w(gtx)
 	sz := layout.FPt(dims.Size)
 	
-	rr := float32(gtx.Px(b.CornerRadius))
-	width := float32(gtx.Px(b.Width))
+	rr := float32(gtx.Px(b.cornerRadius))
+	width := float32(gtx.Px(b.width))
 	sz.X -= width
 	sz.Y -= width
 	
@@ -70,7 +70,7 @@ func (b *Border) Fn(gtx layout.Context) layout.Dimensions {
 	r = r.Add(f32.Point{X: width * 0.5, Y: width * 0.5})
 	
 	paint.FillShape(gtx.Ops,
-		b.Color,
+		b.color,
 		clip.Stroke{
 			Path:  clip.UniformRRect(r, rr).Path(gtx.Ops),
 			Style: clip.StrokeStyle{Width: width},

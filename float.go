@@ -4,7 +4,7 @@ package gel
 
 import (
 	"image"
-
+	
 	"gioui.org/gesture"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
@@ -14,6 +14,7 @@ import (
 // Float is for selecting a value in a range.
 type Float struct {
 	value      float32
+	axis       layout.Axis
 	drag       gesture.Drag
 	pos        float32 // position normalized to [0, 1]
 	length     float32
@@ -41,39 +42,44 @@ func (f *Float) SetHook(fn func(fl float32)) *Float {
 // Fn processes events.
 func (f *Float) Fn(gtx layout.Context, pointerMargin int, min, max float32) layout.Dimensions {
 	size := gtx.Constraints.Min
-	f.length = float32(size.X)
+	f.length = float32(f.axis.Convert(size).X)
+	
 	var de *pointer.Event
-	for _, ev := range f.drag.Events(gtx.Metric, gtx, gesture.Horizontal) {
-		if ev.Type == pointer.Press || ev.Type == pointer.Drag {
-			de = &ev
-		}
-		if ev.Type == pointer.Release {
-			f.changeHook(f.value)
+	for _, e := range f.drag.Events(gtx.Metric, gtx, gesture.Axis(f.axis)) {
+		if e.Type == pointer.Press || e.Type == pointer.Drag {
+			de = &e
 		}
 	}
+	
 	value := f.value
 	if de != nil {
-		f.pos = de.Position.X / f.length
+		xy := de.Position.X
+		if f.axis == layout.Vertical {
+			xy = de.Position.Y
+		}
+		f.pos = xy / f.length
 		value = min + (max-min)*f.pos
 	} else if min != max {
-		f.pos = value/(max-min) - min
+		f.pos = (value - min) / (max - min)
 	}
 	// Unconditionally call setValue in case min, max, or value changed.
 	f.setValue(value, min, max)
-
+	
 	if f.pos < 0 {
 		f.pos = 0
 	} else if f.pos > 1 {
 		f.pos = 1
 	}
-
-	defer op.Push(gtx.Ops).Pop()
-	rect := image.Rectangle{Max: size}
-	rect.Min.X -= pointerMargin
-	rect.Max.X += pointerMargin
+	
+	defer op.Save(gtx.Ops).Load()
+	margin := f.axis.Convert(image.Pt(pointerMargin, 0))
+	rect := image.Rectangle{
+		Min: margin.Mul(-1),
+		Max: size.Add(margin),
+	}
 	pointer.Rect(rect).Add(gtx.Ops)
 	f.drag.Add(gtx.Ops)
-
+	
 	return layout.Dimensions{Size: size}
 }
 

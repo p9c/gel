@@ -55,17 +55,17 @@ func (b *ButtonLayout) Embed(w l.Widget) *ButtonLayout {
 }
 
 func (b *ButtonLayout) SetClick(fn func()) *ButtonLayout {
-	b.button.SetClick(fn)
+	b.SetClick(fn)
 	return b
 }
 
 func (b *ButtonLayout) SetCancel(fn func()) *ButtonLayout {
-	b.button.SetCancel(fn)
+	b.SetCancel(fn)
 	return b
 }
 
 func (b *ButtonLayout) SetPress(fn func()) *ButtonLayout {
-	b.button.SetPress(fn)
+	b.SetPress(fn)
 	return b
 }
 
@@ -101,6 +101,6 @@ func (b *ButtonLayout) Fn(gtx l.Context) l.Dimensions {
 				gtx.Constraints.Min = min
 				return l.Center.Layout(gtx, b.w)
 			}).
-		Expanded(b.button.Fn).
+		Expanded(b.Fn).
 		Fn(gtx)
 }

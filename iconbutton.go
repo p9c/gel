@@ -72,7 +72,7 @@ func (b *IconButton) Scale(scale float32) *IconButton {
 // ButtonInset sets the size of inset that goes in between the button background
 // and the icon
 func (b *IconButton) ButtonInset(inset float32) *IconButton {
-	b.inset = b.Inset(inset, b.button.Fn)
+	b.inset = b.Inset(inset, b.button.Layout)
 	return b
 }
 
@@ -126,7 +126,7 @@ func (b *IconButton) Fn(gtx l.Context) l.Dimensions {
 	).Expanded(
 		func(gtx l.Context) l.Dimensions {
 			pointer.Ellipse(image.Rectangle{Max: gtx.Constraints.Min}).Add(gtx.Ops)
-			return b.button.Fn(gtx)
+			return b.button.Layout(gtx)
 		},
 	).Fn(gtx)
 }

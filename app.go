@@ -58,7 +58,7 @@ type App struct {
 type WidgetMap map[string]l.Widget
 
 func (w *Window) App(size *int, activePage *atomic.String, invalidate chan struct{}, Break1 float32,) *App {
-	mc := w.Clickable()
+	mc := w.WidgetPool.GetClickable()
 	a := &App{
 		Window:              w,
 		activePage:          activePage,
@@ -78,7 +78,7 @@ func (w *Window) App(size *int, activePage *atomic.String, invalidate chan struc
 		statusBarColor:      "DocText",
 		sideBarList:         w.List(),
 		Logo:                &icons.ActionSettingsApplications,
-		LogoClickable:       w.Clickable(),
+		LogoClickable:       w.WidgetPool.GetClickable(),
 		title:               "gio elements application",
 		titleBarBackground:  "Primary",
 		titleBarColor:       "DocBg",

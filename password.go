@@ -87,7 +87,7 @@ func (w *Window) Password(
 	pasteClickableFn := func() {
 		go func() {
 			txt := p.pass.Text()
-			txt = txt[:p.pass.Caret.Col] + clipboard.Get() + txt[p.pass.Caret.Col:]
+			txt = txt[:p.pass.caret.start.lineCol.X] + clipboard.Get() + txt[p.pass.caret.start.lineCol.X:]
 			p.pass.SetText(txt)
 		}()
 		p.pass.Focus()

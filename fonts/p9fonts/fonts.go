@@ -3,7 +3,7 @@ package p9fonts
 import (
 	"fmt"
 	"sync"
-
+	
 	"gioui.org/font/opentype"
 	"gioui.org/text"
 	"golang.org/x/image/font/gofont/gomono"
@@ -54,13 +54,14 @@ func Collection() []text.FontFace {
 		// Ensure that any outside appends will not reuse the backing store.
 		n := len(collection)
 		collection = collection[:n:n]
-	})
+	},
+	)
 	return collection
 }
 
 func register(fnt text.Font, ttf []byte) {
 	face, e := opentype.Parse(ttf)
-	if e != nil  {
+	if e != nil {
 		panic(fmt.Errorf("failed to parse font: %v", e))
 	}
 	// fnt.Typeface = "Go"

@@ -1,10 +1,11 @@
 package main
 
 import (
+	"github.com/p9c/gel/version"
 	logg "github.com/p9c/log"
 )
 
-var subsystem = logg.AddLoggerSubsystem()
+var subsystem = logg.AddLoggerSubsystem(version.PathBase)
 var F, E, W, I, D, T logg.LevelPrinter = logg.GetLogPrinterSet(subsystem)
 
 func init() {

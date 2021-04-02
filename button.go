@@ -111,19 +111,19 @@ func (b *Button) TextScale(scale float32) *Button {
 
 // SetClick defines the callback to run on a click (mouse up) event
 func (b *Button) SetClick(fn func()) *Button {
-	b.button.SetClick(fn)
+	b.SetClick(fn)
 	return b
 }
 
 // SetCancel sets the callback to run when the user presses down over the button
 // but then moves out of its hitbox before release (click)
 func (b *Button) SetCancel(fn func()) *Button {
-	b.button.SetCancel(fn)
+	b.SetCancel(fn)
 	return b
 }
 
 func (b *Button) SetPress(fn func()) *Button {
-	b.button.SetPress(fn)
+	b.SetPress(fn)
 	return b
 }
 
@@ -149,28 +149,35 @@ func (b *Button) Fn(gtx l.Context) l.Dimensions {
 	return bl.Fn(gtx)
 }
 
-func drawInk(c l.Context, p press) {
-	// duration is the number of seconds for the completed animation: expand while
-	// fading in, then out.
+func drawInk(gtx l.Context, c Press) {
+	// duration is the number of seconds for the
+	// completed animation: expand while fading in, then
+	// out.
 	const (
 		expandDuration = float32(0.5)
 		fadeDuration   = float32(0.9)
 	)
-	now := c.Now
-	t := float32(now.Sub(p.Start).Seconds())
-	end := p.End
+	
+	now := gtx.Now
+	
+	t := float32(now.Sub(c.Start).Seconds())
+	
+	end := c.End
 	if end.IsZero() {
 		// If the press hasn't ended, don't fade-out.
 		end = now
 	}
-	endt := float32(end.Sub(p.Start).Seconds())
+	
+	endt := float32(end.Sub(c.Start).Seconds())
+	
 	// Compute the fade-in/out position in [0;1].
 	var alphat float32
 	{
 		var haste float32
-		if p.Cancelled {
-			// If the press was cancelled before the inkwell was fully faded in, fast
-			// forward the animation to match the fade-out.
+		if c.Cancelled {
+			// If the press was cancelled before the inkwell
+			// was fully faded in, fast forward the animation
+			// to match the fade-out.
 			if h := 0.5 - endt/fadeDuration; h > 0 {
 				haste = h
 			}
@@ -180,6 +187,7 @@ func drawInk(c l.Context, p press) {
 		if half1 > 0.5 {
 			half1 = 0.5
 		}
+		
 		// Fade out.
 		half2 := float32(now.Sub(end).Seconds())
 		half2 /= fadeDuration
@@ -191,20 +199,24 @@ func drawInk(c l.Context, p press) {
 		
 		alphat = half1 + half2
 	}
+	
 	// Compute the expand position in [0;1].
 	sizet := t
-	if p.Cancelled {
+	if c.Cancelled {
 		// Freeze expansion of cancelled presses.
 		sizet = endt
 	}
 	sizet /= expandDuration
+	
 	// Animate only ended presses, and presses that are fading in.
-	if !p.End.IsZero() || sizet <= 1.0 {
-		op.InvalidateOp{}.Add(c.Ops)
+	if !c.End.IsZero() || sizet <= 1.0 {
+		op.InvalidateOp{}.Add(gtx.Ops)
 	}
+	
 	if sizet > 1.0 {
 		sizet = 1.0
 	}
+	
 	if alphat > .5 {
 		// Start fadeout after half the animation.
 		alphat = 1.0 - alphat
@@ -214,8 +226,8 @@ func drawInk(c l.Context, p press) {
 	// Beziér ease-in curve.
 	alphaBezier := t2 * t2 * (3.0 - 2.0*t2)
 	sizeBezier := sizet * sizet * (3.0 - 2.0*sizet)
-	size := float32(c.Constraints.Min.X)
-	if h := float32(c.Constraints.Min.Y); h > size {
+	size := float32(gtx.Constraints.Min.X)
+	if h := float32(gtx.Constraints.Min.Y); h > size {
 		size = h
 	}
 	// Cover the entire constraints min rectangle.
@@ -225,27 +237,17 @@ func drawInk(c l.Context, p press) {
 	alpha := 0.7 * alphaBezier
 	const col = 0.8
 	ba, bc := byte(alpha*0xff), byte(col*0xff)
-	defer op.Push(c.Ops).Pop()
+	defer op.Save(gtx.Ops).Load()
 	rgba := f32color.MulAlpha(color.NRGBA{A: 0xff, R: bc, G: bc, B: bc}, ba)
 	ink := paint.ColorOp{Color: rgba}
-	ink.Add(c.Ops)
+	ink.Add(gtx.Ops)
 	rr := size * .5
-	op.Offset(
-		p.Position.Add(
-			f32.Point{
-				X: -rr,
-				Y: -rr,
-			},
-		),
-	).Add(c.Ops)
-	clip.RRect{
-		Rect: f32.Rectangle{
-			Max: f32.Point{
-				X: size,
-				Y: size,
-			},
-		},
-		NE: rr, NW: rr, SE: rr, SW: rr,
-	}.Add(c.Ops)
-	paint.PaintOp{}.Add(c.Ops)
+	op.Offset(c.Position.Add(f32.Point{
+		X: -rr,
+		Y: -rr,
+	},
+	),
+	).Add(gtx.Ops)
+	clip.UniformRRect(f32.Rectangle{Max: f32.Pt(size, size)}, rr).Add(gtx.Ops)
+	paint.PaintOp{}.Add(gtx.Ops)
 }

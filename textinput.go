@@ -24,6 +24,8 @@ type TextInput struct {
 	hint string
 	// HintColor is the color of hint text.
 	hintColor color.NRGBA
+	// SelectionColor is the color of the background for selected text.
+	SelectionColor color.NRGBA
 	editor    *Editor
 	shaper    text.Shaper
 }
@@ -84,34 +86,43 @@ func (ti *TextInput) HintColor(color string) *TextInput {
 }
 
 // Fn renders the text input widget
-func (ti *TextInput) Fn(c l.Context) l.Dimensions {
-	defer op.Push(c.Ops).Pop()
-	macro := op.Record(c.Ops)
-	paint.ColorOp{Color: ti.hintColor}.Add(c.Ops)
-	tl := Text{alignment: ti.editor.alignment}
-	dims := tl.Fn(c, ti.shaper, ti.font, ti.textSize, ti.hint)
+func (ti *TextInput) Fn(gtx l.Context) l.Dimensions {
+	defer op.Save(gtx.Ops).Load()
+	macro := op.Record(gtx.Ops)
+	paint.ColorOp{Color: ti.hintColor}.Add(gtx.Ops)
+	var maxlines int
+	if ti.editor.singleLine {
+		maxlines = 1
+	}
+	tl := Label{alignment: ti.editor.alignment, maxLines: maxlines}
+	dims := tl.Layout(gtx, ti.shaper, ti.font, ti.TextSize, ti.hint)
 	call := macro.Stop()
-	if w := dims.Size.X; c.Constraints.Min.X < w {
-		c.Constraints.Min.X = w
+	if w := dims.Size.X; gtx.Constraints.Min.X < w {
+		gtx.Constraints.Min.X = w
 	}
-	if h := dims.Size.Y; c.Constraints.Min.Y < h {
-		c.Constraints.Min.Y = h
+	if h := dims.Size.Y; gtx.Constraints.Min.Y < h {
+		gtx.Constraints.Min.Y = h
 	}
-	dims = ti.editor.Layout(c, ti.shaper, ti.font, ti.textSize)
-	disabled := c.Queue == nil
+	dims = ti.editor.Layout(gtx, ti.shaper, ti.font, ti.TextSize)
+	disabled := gtx.Queue == nil
 	if ti.editor.Len() > 0 {
-		textColor := ti.color
-		if disabled {
-			textColor = f32color.MulAlpha(textColor, 150)
-		}
-		paint.ColorOp{Color: textColor}.Add(c.Ops)
-		ti.editor.PaintText(c)
+		paint.ColorOp{Color: blendDisabledColor(disabled, ti.SelectionColor)}.Add(gtx.Ops)
+		ti.editor.PaintSelection(gtx)
+		paint.ColorOp{Color: blendDisabledColor(disabled, ti.color)}.Add(gtx.Ops)
+		ti.editor.PaintText(gtx)
 	} else {
-		call.Add(c.Ops)
+		call.Add(gtx.Ops)
 	}
 	if !disabled {
-		paint.ColorOp{Color: ti.color}.Add(c.Ops)
-		ti.editor.PaintCaret(c)
+		paint.ColorOp{Color: ti.color}.Add(gtx.Ops)
+		ti.editor.PaintCaret(gtx)
 	}
 	return dims
+}
+
+func blendDisabledColor(disabled bool, c color.NRGBA) color.NRGBA {
+	if disabled {
+		return f32color.Disabled(c)
+	}
+	return c
 }

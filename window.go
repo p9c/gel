@@ -1,7 +1,6 @@
 package gel
 
 import (
-	"gioui.org/io/key"
 	"github.com/p9c/gel/fonts/p9fonts"
 	"github.com/p9c/opts/binary"
 	"github.com/p9c/opts/meta"
@@ -52,17 +51,6 @@ type Window struct {
 	evQ           system.FrameEvent
 	Runner        CallbackQueue
 	overlay       []func(gtx l.Context)
-	keyQ          chan key.Event
-	sendKeyEvents bool
-}
-
-func (w *Window) GetKeyChan() chan key.Event {
-	w.keyQ = make(chan key.Event)
-	return w.keyQ
-}
-
-func (w *Window) SetKeyChanSend(b bool) {
-	w.sendKeyEvents = b
 }
 
 func (w *Window) PushOverlay(overlay func(gtx l.Context)) {
@@ -178,10 +166,6 @@ func (w *Window) processEvents(evt event.Event, frame func(ctx l.Context) l.Dime
 		frame(c)
 		w.Overlay(c)
 		ev.Frame(c.Ops)
-	case key.Event:
-		if w.sendKeyEvents {
-			w.keyQ <- ev
-		}
 	}
 	return nil
 }

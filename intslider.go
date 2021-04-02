@@ -18,8 +18,8 @@ type IntSlider struct {
 func (w *Window) IntSlider() *IntSlider {
 	return &IntSlider{
 		Window:  w,
-		min:     w.Clickable(),
-		max:     w.Clickable(),
+		min:     w.WidgetPool.GetClickable(),
+		max:     w.WidgetPool.GetClickable(),
 		floater: w.Float(),
 		hook:    func(int) {},
 	}

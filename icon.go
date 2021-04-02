@@ -77,10 +77,10 @@ func (i *Icon) Fn(gtx l.Context) l.Dimensions {
 }
 
 func (i *Icon) image(sz int) paint.ImageOp {
-	// if sz == i.imgSize && i.color == i.imgColor {
-	// 	// D.Ln("reusing old icon")
-	// 	return i.op
-	// }
+	if sz == i.imgSize && i.color == i.imgColor {
+		// D.Ln("reusing old icon")
+		return i.op
+	}
 	if ico, ok := i.Theme.iconCache[i.src]; ok {
 		if isz, ok := ico[i.size.V]; ok {
 			if icl, ok := isz[i.Theme.Colors.GetNRGBAFromName(i.color)]; ok {

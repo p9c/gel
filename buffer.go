@@ -3,13 +3,18 @@
 package gel
 
 import (
+	"fmt"
 	"io"
 	"strings"
 	"unicode/utf8"
 )
 
+const bufferDebug = false
+
 // editBuffer implements a gap buffer for text editing.
 type editBuffer struct {
+	// caret is the caret position in bytes.
+	caret int
 	// pos is the byte position for Read and ReadRune.
 	pos int
 	
@@ -24,18 +29,24 @@ type editBuffer struct {
 
 const minSpace = 5
 
+func (e *editBuffer) Zero() {
+	for i := range e.text {
+		e.text[i] = 0
+	}
+}
+
 func (e *editBuffer) Changed() bool {
 	c := e.changed
 	e.changed = false
 	return c
 }
 
-func (e *editBuffer) deleteRunes(caret, runes int) int {
-	e.moveGap(caret, 0)
+func (e *editBuffer) deleteRunes(runes int) {
+	e.moveGap(0)
 	for ; runes < 0 && e.gapstart > 0; runes++ {
 		_, s := utf8.DecodeLastRune(e.text[:e.gapstart])
 		e.gapstart -= s
-		caret -= s
+		e.caret -= s
 		e.changed = e.changed || s > 0
 	}
 	for ; runes > 0 && e.gapend < len(e.text); runes-- {
@@ -43,12 +54,12 @@ func (e *editBuffer) deleteRunes(caret, runes int) int {
 		e.gapend += s
 		e.changed = e.changed || s > 0
 	}
-	return caret
+	e.dump()
 }
 
 // moveGap moves the gap to the caret position. After returning,
 // the gap is guaranteed to be at least space bytes long.
-func (e *editBuffer) moveGap(caret, space int) {
+func (e *editBuffer) moveGap(space int) {
 	if e.gapLen() < space {
 		if space < minSpace {
 			space = minSpace
@@ -57,28 +68,29 @@ func (e *editBuffer) moveGap(caret, space int) {
 		// Expand to capacity.
 		txt = txt[:cap(txt)]
 		gaplen := len(txt) - e.len()
-		if caret > e.gapstart {
+		if e.caret > e.gapstart {
 			copy(txt, e.text[:e.gapstart])
-			copy(txt[caret+gaplen:], e.text[caret:])
-			copy(txt[e.gapstart:], e.text[e.gapend:caret+e.gapLen()])
+			copy(txt[e.caret+gaplen:], e.text[e.caret:])
+			copy(txt[e.gapstart:], e.text[e.gapend:e.caret+e.gapLen()])
 		} else {
-			copy(txt, e.text[:caret])
+			copy(txt, e.text[:e.caret])
 			copy(txt[e.gapstart+gaplen:], e.text[e.gapend:])
-			copy(txt[caret+gaplen:], e.text[caret:e.gapstart])
+			copy(txt[e.caret+gaplen:], e.text[e.caret:e.gapstart])
 		}
 		e.text = txt
-		e.gapstart = caret
+		e.gapstart = e.caret
 		e.gapend = e.gapstart + gaplen
 	} else {
-		if caret > e.gapstart {
-			copy(e.text[e.gapstart:], e.text[e.gapend:caret+e.gapLen()])
+		if e.caret > e.gapstart {
+			copy(e.text[e.gapstart:], e.text[e.gapend:e.caret+e.gapLen()])
 		} else {
-			copy(e.text[caret+e.gapLen():], e.text[caret:e.gapstart])
+			copy(e.text[e.caret+e.gapLen():], e.text[e.caret:e.gapstart])
 		}
 		l := e.gapLen()
-		e.gapstart = caret
+		e.gapstart = e.caret
 		e.gapend = e.gapstart + l
 	}
+	e.dump()
 }
 
 func (e *editBuffer) len() int {
@@ -90,7 +102,7 @@ func (e *editBuffer) gapLen() int {
 }
 
 func (e *editBuffer) Reset() {
-	e.Seek(0, io.SeekStart)
+	e.pos = 0
 }
 
 // Seek implements io.Seeker
@@ -150,11 +162,18 @@ func (e *editBuffer) String() string {
 	return b.String()
 }
 
-func (e *editBuffer) prepend(caret int, s string) {
-	e.moveGap(caret, len(s))
-	copy(e.text[caret:], s)
+func (e *editBuffer) prepend(s string) {
+	e.moveGap(len(s))
+	copy(e.text[e.caret:], s)
 	e.gapstart += len(s)
 	e.changed = e.changed || len(s) > 0
+	e.dump()
+}
+
+func (e *editBuffer) dump() {
+	if bufferDebug {
+		fmt.Printf("len(e.text) %d e.len() %d e.gapstart %d e.gapend %d e.caret %d txt:\n'%+x'<-%d->'%+x'\n", len(e.text), e.len(), e.gapstart, e.gapend, e.caret, e.text[:e.gapstart], e.gapLen(), e.text[e.gapend:])
+	}
 }
 
 func (e *editBuffer) runeBefore(idx int) (rune, int) {
