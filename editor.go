@@ -418,6 +418,38 @@ func (e *Editor) Layout(gtx layout.Context, sh text.Shaper, font text.Font, size
 	return e.layout(gtx)
 }
 
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func abs(n int) int {
+	if n < 0 {
+		return -n
+	}
+	return n
+}
+
+func sign(n int) int {
+	switch {
+	case n < 0:
+		return -1
+	case n > 0:
+		return 1
+	default:
+		return 0
+	}
+}
+
 func (e *Editor) layout(gtx layout.Context) layout.Dimensions {
 	// Adjust scrolling for new viewport and layout.
 	e.scrollRel(0, 0)
@@ -449,7 +481,7 @@ func (e *Editor) layout(gtx layout.Context) layout.Dimensions {
 	}
 	key.InputOp{Tag: &e.eventKey}.Add(gtx.Ops)
 	if e.requestFocus {
-		key.FocusOp{Focus: true}.Add(gtx.Ops)
+		key.FocusOp{Tag: &e.eventKey}.Add(gtx.Ops)
 		key.SoftKeyboardOp{Show: true}.Add(gtx.Ops)
 	}
 	e.requestFocus = false
@@ -461,9 +493,16 @@ func (e *Editor) layout(gtx layout.Context) layout.Dimensions {
 	r.Max.X += pointerPadding
 	pointer.Rect(r).Add(gtx.Ops)
 	pointer.CursorNameOp{Name: pointer.CursorText}.Add(gtx.Ops)
-	if !e.singleLine {
-		e.scroller.Add(gtx.Ops)
+	var scrollRange image.Rectangle
+	if e.singleLine {
+		scrollRange.Min.X = -e.scrollOff.X
+		scrollRange.Max.X = max(0, e.dims.Size.X-(e.scrollOff.X+e.viewSize.X))
+	} else {
+		scrollRange.Min.Y = -e.scrollOff.Y
+		scrollRange.Max.Y = max(0, e.dims.Size.Y-(e.scrollOff.Y+e.viewSize.Y))
 	}
+	e.scroller.Add(gtx.Ops, scrollRange)
+
 	e.clicker.Add(gtx.Ops)
 	e.Caret.on = false
 	if e.focused {
@@ -486,12 +525,12 @@ func (e *Editor) PaintText(gtx layout.Context) {
 	cl := textPadding(e.lines)
 	cl.Max = cl.Max.Add(e.viewSize)
 	for _, shape := range e.shapes {
-		stack := op.Push(gtx.Ops)
+		stack := op.Save(gtx.Ops)
 		op.Offset(layout.FPt(shape.offset)).Add(gtx.Ops)
 		shape.clip.Add(gtx.Ops)
 		clip.Rect(cl.Sub(shape.offset)).Add(gtx.Ops)
 		paint.PaintOp{}.Add(gtx.Ops)
-		stack.Pop()
+		stack.Load()
 	}
 }
 
@@ -504,7 +543,7 @@ func (e *Editor) PaintCaret(gtx layout.Context) {
 	carX := e.Caret.x
 	carY := e.Caret.y
 	
-	defer op.Push(gtx.Ops).Pop()
+	defer op.Save(gtx.Ops).Load()
 	carX -= carWidth / 2
 	carAsc, carDesc := -e.lines[e.Caret.Line].Bounds.Min.Y, e.lines[e.Caret.Line].Bounds.Max.Y
 	carRect := image.Rectangle{
@@ -527,10 +566,10 @@ func (e *Editor) PaintCaret(gtx layout.Context) {
 	cl.Max = cl.Max.Add(e.viewSize)
 	carRect = cl.Intersect(carRect)
 	if !carRect.Empty() {
-		st := op.Push(gtx.Ops)
+		st := op.Save(gtx.Ops)
 		clip.Rect(carRect).Add(gtx.Ops)
 		paint.PaintOp{}.Add(gtx.Ops)
-		st.Pop()
+		st.Load()
 	}
 }
 

@@ -188,7 +188,8 @@ func (li *List) Active(color string) *List {
 func (li *List) Slice(gtx l.Context, widgets ...l.Widget) l.Widget {
 	return li.Length(len(widgets)).Vertical().ListElement(func(gtx l.Context, index int) l.Dimensions {
 		return widgets[index](gtx)
-	}).Fn
+	},
+	).Fn
 }
 
 // Fn runs the layout in the configured context. The ListElement function returns the widget at the given index
@@ -259,7 +260,7 @@ func (li *List) Fn(gtx l.Context) l.Dimensions {
 	if li.axis == l.Horizontal {
 		containerFlex := li.Theme.VFlex()
 		if !li.leftSide {
-			containerFlex.Rigid(li.embedWidget(li.scrollWidth/* + int(li.TextSize.True)/4)*/))
+			containerFlex.Rigid(li.embedWidget(li.scrollWidth /* + int(li.TextSize.True)/4)*/))
 			containerFlex.Rigid(EmptySpace(int(li.TextSize.V)/4, int(li.TextSize.V)/4))
 		}
 		containerFlex.Rigid(
@@ -267,17 +268,26 @@ func (li *List) Fn(gtx l.Context) l.Dimensions {
 				Rigid(
 					func(gtx l.Context) l.Dimensions {
 						pointer.Rect(image.Rectangle{Max: image.Point{X: gtx.Constraints.Max.X,
-							Y: gtx.Constraints.Max.Y}}).Add(gtx.Ops)
+							Y: gtx.Constraints.Max.Y,
+						},
+						},
+						).Add(gtx.Ops)
 						li.drag.Add(gtx.Ops)
 						return li.Theme.Flex().
 							Rigid(li.pageUpDown(li.dims, li.view, li.total,
 								// li.scrollBarPad+
-								li.scrollWidth, li.top, false)).
+								li.scrollWidth, li.top, false,
+						),
+						).
 							Rigid(li.grabber(li.dims, li.scrollWidth, li.middle,
-								li.view, gtx.Constraints.Max.X)).
+								li.view, gtx.Constraints.Max.X,
+							),
+							).
 							Rigid(li.pageUpDown(li.dims, li.view, li.total,
 								// li.scrollBarPad+
-								li.scrollWidth, li.bottom, true)).
+								li.scrollWidth, li.bottom, true,
+							),
+							).
 							Fn(gtx)
 					},
 				).
@@ -305,19 +315,28 @@ func (li *List) Fn(gtx l.Context) l.Dimensions {
 				Rigid(
 					func(gtx l.Context) l.Dimensions {
 						pointer.Rect(image.Rectangle{Max: image.Point{X: gtx.Constraints.Max.X,
-							Y: gtx.Constraints.Max.Y}}).Add(gtx.Ops)
+							Y: gtx.Constraints.Max.Y,
+						},
+						},
+						).Add(gtx.Ops)
 						li.drag.Add(gtx.Ops)
 						return li.Theme.Flex().Vertical().
 							Rigid(li.pageUpDown(li.dims, li.view, li.total,
 								// li.scrollBarPad+
-								li.scrollWidth, li.top, false)).
+								li.scrollWidth, li.top, false,
+						),
+						).
 							Rigid(li.grabber(li.dims,
 								// li.scrollBarPad+
 								li.scrollWidth, li.middle,
-								li.view, gtx.Constraints.Max.X)).
+								li.view, gtx.Constraints.Max.X,
+							),
+							).
 							Rigid(li.pageUpDown(li.dims, li.view, li.total,
 								// li.scrollBarPad+
-								li.scrollWidth, li.bottom, true)).
+								li.scrollWidth, li.bottom, true,
+							),
+							).
 							Fn(gtx)
 					},
 				).
@@ -327,11 +346,12 @@ func (li *List) Fn(gtx l.Context) l.Dimensions {
 				// 	EmptySpace(0, 0),
 				// 	// ),
 				// ).
-				Fn).Fn,
+				Fn,
+			).Fn,
 		)
 		if li.leftSide {
 			containerFlex.Rigid(EmptySpace(int(li.TextSize.V)/2, int(li.TextSize.V)/2))
-			containerFlex.Rigid(li.embedWidget(li.scrollWidth+int(li.TextSize.V)/2))
+			containerFlex.Rigid(li.embedWidget(li.scrollWidth + int(li.TextSize.V)/2))
 		}
 		container = li.Fill(li.background, l.Center, li.TextSize.V/4, 0, containerFlex.Fn).Fn
 	}
@@ -361,8 +381,9 @@ func (li *List) pageUpDown(dims DimensionList, view, total, x, y int, down bool)
 		button = li.pageDown
 	}
 	return func(gtx l.Context) l.Dimensions {
-		pointer.Rect(image.Rectangle{Max: gtx.Constraints.Max}).Add(gtx.Ops)
-		li.sideScroll.Add(gtx.Ops)
+		bounds := image.Rectangle{Max: gtx.Constraints.Max}
+		pointer.Rect(bounds).Add(gtx.Ops)
+		li.sideScroll.Add(gtx.Ops, bounds)
 		return li.ButtonLayout(button.SetClick(func() {
 			current := dims.PositionToCoordinate(li.position, li.axis)
 			var newPos int
@@ -379,8 +400,10 @@ func (li *List) pageUpDown(dims DimensionList, view, total, x, y int, down bool)
 				}
 			}
 			li.position = dims.CoordinateToPosition(newPos, li.axis)
-		}).
-			SetPress(func() { li.recentPageClick = time.Now() })).Embed(
+		},
+		).
+			SetPress(func() { li.recentPageClick = time.Now() }),
+		).Embed(
 			li.Flex().
 				Rigid(EmptySpace(x/4, y)).
 				Rigid(
@@ -434,9 +457,10 @@ func (li *List) grabber(dims DimensionList, x, y, viewAxis, viewCross int) func(
 			}
 			// if de.Type == pointer.Scroll {
 		}
-		defer op.Push(gtx.Ops).Pop()
-		pointer.Rect(image.Rectangle{Max: image.Point{X: x, Y: y}}).Add(gtx.Ops)
-		li.sideScroll.Add(gtx.Ops)
+		defer op.Save(gtx.Ops).Load()
+		bounds := image.Rectangle{Max: image.Point{X: x, Y: y}}
+		pointer.Rect(bounds).Add(gtx.Ops)
+		li.sideScroll.Add(gtx.Ops, bounds)
 		return li.Flex().
 			// Rigid(EmptySpace(x/4, y)).
 			Rigid(
@@ -652,11 +676,11 @@ func (li *List) layout(macro op.MacroOp) l.Dimensions {
 			Min: axisPoint(li.axis, min, -Inf),
 			Max: axisPoint(li.axis, max, Inf),
 		}
-		stack := op.Push(ops)
+		stack := op.Save(ops)
 		clip.Rect(r).Add(ops)
 		op.Offset(toPointF(axisPoint(li.axis, pos, cross))).Add(ops)
 		child.call.Add(ops)
-		stack.Pop()
+		stack.Load()
 		pos += childSize
 	}
 	atStart := li.position.First == 0 && li.position.Offset <= 0
@@ -673,9 +697,10 @@ func (li *List) layout(macro op.MacroOp) l.Dimensions {
 	}
 	dims := axisPoint(li.axis, pos, maxCross)
 	call := macro.Stop()
-	defer op.Push(li.ctx.Ops).Pop()
-	pointer.Rect(image.Rectangle{Max: dims}).Add(ops)
-	li.scroll.Add(ops)
+	defer op.Save(li.ctx.Ops).Load()
+	bounds := image.Rectangle{Max: dims}
+	pointer.Rect(bounds).Add(ops)
+	li.scroll.Add(ops, bounds)
 	call.Add(ops)
 	return l.Dimensions{Size: dims}
 }

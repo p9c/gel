@@ -45,10 +45,10 @@ func (i Image) Fn(gtx layout.Context) layout.Dimensions {
 	w, h := gtx.Px(unit.Dp(wf*scale)), gtx.Px(unit.Dp(hf*scale))
 	cs := gtx.Constraints
 	d := cs.Constrain(image.Pt(w, h))
-	stack := op.Push(gtx.Ops)
+	stack := op.Save(gtx.Ops)
 	clip.Rect(image.Rectangle{Max: d}).Add(gtx.Ops)
 	i.src.Add(gtx.Ops)
 	paint.PaintOp{}.Add(gtx.Ops)
-	stack.Pop()
+	stack.Load()
 	return layout.Dimensions{Size: size}
 }

@@ -85,7 +85,7 @@ func (ti *TextInput) HintColor(color string) *TextInput {
 
 // Fn renders the text input widget
 func (ti *TextInput) Fn(c l.Context) l.Dimensions {
-	defer op.Push(c.Ops).Pop()
+	defer op.Save(c.Ops).Load()
 	macro := op.Record(c.Ops)
 	paint.ColorOp{Color: ti.hintColor}.Add(c.Ops)
 	tl := Text{alignment: ti.editor.alignment}

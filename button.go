@@ -225,7 +225,7 @@ func drawInk(c l.Context, p press) {
 	alpha := 0.7 * alphaBezier
 	const col = 0.8
 	ba, bc := byte(alpha*0xff), byte(col*0xff)
-	defer op.Push(c.Ops).Pop()
+	defer op.Save(c.Ops).Load()
 	rgba := f32color.MulAlpha(color.NRGBA{A: 0xff, R: bc, G: bc, B: bc}, ba)
 	ink := paint.ColorOp{Color: rgba}
 	ink.Add(c.Ops)

@@ -113,10 +113,10 @@ func (c *Clickable) History() []press {
 
 func (c *Clickable) Fn(gtx l.Context) l.Dimensions {
 	c.update(gtx)
-	stack := op.Push(gtx.Ops)
+	stack := op.Save(gtx.Ops)
 	pointer.Rect(image.Rectangle{Max: gtx.Constraints.Min}).Add(gtx.Ops)
 	c.click.Add(gtx.Ops)
-	stack.Pop()
+	stack.Load()
 	for len(c.history) > 0 {
 		cc := c.history[0]
 		if cc.End.IsZero() || gtx.Now.Sub(cc.End) < 1*time.Second {
