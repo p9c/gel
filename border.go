@@ -5,7 +5,6 @@ import (
 	
 	"gioui.org/f32"
 	"gioui.org/layout"
-	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
@@ -59,21 +58,24 @@ func (b *Border) Embed(w layout.Widget) *Border {
 
 // Fn renders the border
 func (b *Border) Fn(gtx layout.Context) layout.Dimensions {
-	dims := b.w(gtx)
-	sz := dims.Size
-	rr := float32(gtx.Px(b.cornerRadius))
-	st := op.Push(gtx.Ops)
-	width := gtx.Px(b.width)
-	clip.Border{
-		Rect:  f32.Rectangle{Max: layout.FPt(sz)},
-		NE:    ifDir(rr, b.corners&NE),
-		NW:    ifDir(rr, b.corners&NW),
-		SE:    ifDir(rr, b.corners&SE),
-		SW:    ifDir(rr, b.corners&SW),
-		Width: float32(width),
-	}.Add(gtx.Ops)
-	paint.ColorOp{Color: b.color}.Add(gtx.Ops)
-	paint.PaintOp{}.Add(gtx.Ops)
-	st.Pop()
+	dims := w(gtx)
+	sz := layout.FPt(dims.Size)
+	
+	rr := float32(gtx.Px(b.CornerRadius))
+	width := float32(gtx.Px(b.Width))
+	sz.X -= width
+	sz.Y -= width
+	
+	r := f32.Rectangle{Max: sz}
+	r = r.Add(f32.Point{X: width * 0.5, Y: width * 0.5})
+	
+	paint.FillShape(gtx.Ops,
+		b.Color,
+		clip.Stroke{
+			Path:  clip.UniformRRect(r, rr).Path(gtx.Ops),
+			Style: clip.StrokeStyle{Width: width},
+		}.Op(),
+	)
+	
 	return dims
 }

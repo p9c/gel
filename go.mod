@@ -3,7 +3,7 @@ module github.com/p9c/gel
 go 1.16
 
 require (
-	gioui.org v0.0.0-20201229000053-33103593a1b4
+	gioui.org v0.0.0-20210401145002-9d7b57f74aac
 	github.com/BurntSushi/xgb v0.0.0-20200324125942-20f126ea2843
 	github.com/atotto/clipboard v0.1.4
 	github.com/davecgh/go-spew v1.1.1
