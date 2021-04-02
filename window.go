@@ -1,6 +1,7 @@
 package gel
 
 import (
+	"gioui.org/io/key"
 	"github.com/p9c/gel/fonts/p9fonts"
 	"github.com/p9c/opts/binary"
 	"github.com/p9c/opts/meta"
@@ -43,14 +44,25 @@ func (s *scaledConfig) Px(v unit.Value) int {
 type Window struct {
 	*Theme
 	*app.Window
-	opts    []app.Option
-	scale   *scaledConfig
-	Width   int // stores the width at the beginning of render
-	Height  int
-	ops     op.Ops
-	evQ     system.FrameEvent
-	Runner  CallbackQueue
-	overlay []func(gtx l.Context)
+	opts          []app.Option
+	scale         *scaledConfig
+	Width         int // stores the width at the beginning of render
+	Height        int
+	ops           op.Ops
+	evQ           system.FrameEvent
+	Runner        CallbackQueue
+	overlay       []func(gtx l.Context)
+	keyQ          chan key.Event
+	sendKeyEvents bool
+}
+
+func (w *Window) GetKeyChan() chan key.Event {
+	w.keyQ = make(chan key.Event)
+	return w.keyQ
+}
+
+func (w *Window) SetKeyChanSend(b bool) {
+	w.sendKeyEvents = b
 }
 
 func (w *Window) PushOverlay(overlay func(gtx l.Context)) {
@@ -128,9 +140,9 @@ func (w *Window) Open() (out *Window) {
 
 func (w *Window) Run(
 	frame func(ctx l.Context) l.Dimensions,
-	overlay func(ctx l.Context), destroy func(), quit qu.C,
+	overlay []func(ctx l.Context), destroy func(), quit qu.C,
 ) (e error) {
-	for {
+	go func() {
 		select {
 		case fn := <-w.Runner:
 			if e = fn(); E.Chk(e) {
@@ -138,68 +150,38 @@ func (w *Window) Run(
 			}
 		case <-quit.Wait():
 			return
-			// by repeating selectors we decrease the chance of a runner delaying
-			// a frame event hitting the physical frame deadline
+		}
+	}()
+	for {
+		select {
 		case ev := <-w.Window.Events():
 			if e = w.processEvents(ev, frame, destroy); E.Chk(e) {
-				return
 			}
-		case ev := <-w.Window.Events():
-			if e = w.processEvents(ev, frame, destroy); E.Chk(e) {
-				return
-			}
-		case ev := <-w.Window.Events():
-			if e = w.processEvents(ev, frame, destroy); E.Chk(e) {
-				return
-			}
-		case ev := <-w.Window.Events():
-			if e = w.processEvents(ev, frame, destroy); E.Chk(e) {
-				return
-			}
-		case ev := <-w.Window.Events():
-			if e = w.processEvents(ev, frame, destroy); E.Chk(e) {
-				return
-			}
-		case ev := <-w.Window.Events():
-			if e = w.processEvents(ev, frame, destroy); E.Chk(e) {
-				return
-			}
-		case ev := <-w.Window.Events():
-			if e = w.processEvents(ev, frame, destroy); E.Chk(e) {
-				return
-			}
-		case ev := <-w.Window.Events():
-			if e = w.processEvents(ev, frame, destroy); E.Chk(e) {
-				return
-			}
-		case ev := <-w.Window.Events():
-			if e = w.processEvents(ev, frame, destroy); E.Chk(e) {
-				return
-			}
+		case <-quit.Wait():
+			return
 		}
 	}
 }
 
-func (w *Window) processEvents(e event.Event, frame func(ctx l.Context) l.Dimensions, destroy func()) error {
-	switch e := e.(type) {
+func (w *Window) processEvents(evt event.Event, frame func(ctx l.Context) l.Dimensions, destroy func()) (e error) {
+	switch ev := evt.(type) {
 	case system.DestroyEvent:
-		D.Ln("received destroy event", e.Err)
-		// if e.Err != nil {
-		// 	if strings.Contains(e.Err.Error(), "eglCreateWindowSurface failed") {
-		// 		return nil
-		// 	}
-		// }
+		D.Ln("received destroy event", ev.Err)
 		destroy()
-		return e.Err
+		return ev.Err
 	case system.FrameEvent:
 		ops := op.Ops{}
-		c := l.NewContext(&ops, e)
+		c := l.NewContext(&ops, ev)
 		// update dimensions for responsive sizing widgets
 		w.Width = c.Constraints.Max.X
 		w.Height = c.Constraints.Max.Y
 		frame(c)
 		w.Overlay(c)
-		e.Frame(c.Ops)
+		ev.Frame(c.Ops)
+	case key.Event:
+		if w.sendKeyEvents {
+			w.keyQ <- ev
+		}
 	}
 	return nil
 }
