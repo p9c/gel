@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"strings"
 	"unicode"
+
+	"gioui.org/app"
 )
 
 // GetDataDir returns an operating system specific directory to be used for
@@ -55,6 +57,10 @@ func GetDataDir(goos, appName string, roaming bool) string {
 		}
 	case "plan9":
 		if homeDir != "" {
+			return filepath.Join(homeDir, appNameLower)
+		}
+	case "android", "ios":
+		if homeDir, e = app.DataDir(); !E.Chk(e) {
 			return filepath.Join(homeDir, appNameLower)
 		}
 	default:

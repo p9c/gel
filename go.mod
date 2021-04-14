@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	gioui.org v0.0.0-20210412115641-3a94f7bf7088
+	gioui.org/cmd v0.0.0-20210412115641-3a94f7bf7088 // indirect
 	github.com/BurntSushi/xgb v0.0.0-20210121224620-deaf085860bc
 	github.com/atotto/clipboard v0.1.4
 	github.com/davecgh/go-spew v1.1.1
