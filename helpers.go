@@ -62,8 +62,11 @@ func argb(c uint32) color.RGBA {
 	return color.RGBA{A: uint8(c >> 24), R: uint8(c >> 16), G: uint8(c >> 8), B: uint8(c)}
 }
 
-func toPointF(p image.Point) f32.Point {
-	return f32.Point{X: float32(p.X), Y: float32(p.Y)}
+// FPt converts an point to a f32.Point.
+func Fpt(p image.Point) f32.Point {
+	return f32.Point{
+		X: float32(p.X), Y: float32(p.Y),
+	}
 }
 
 func axisPoint(a l.Axis, main, cross int) image.Point {
@@ -74,44 +77,49 @@ func axisPoint(a l.Axis, main, cross int) image.Point {
 	}
 }
 
+// axisConvert a point in (x, y) coordinates to (main, cross) coordinates,
+// or vice versa. Specifically, Convert((x, y)) returns (x, y) unchanged
+// for the horizontal axis, or (y, x) for the vertical axis.
+func axisConvert(a l.Axis, pt image.Point) image.Point {
+	if a == l.Horizontal {
+		return pt
+	}
+	return image.Pt(pt.Y, pt.X)
+}
+
 func axisMain(a l.Axis, sz image.Point) int {
 	if a == l.Horizontal {
 		return sz.X
-	} else {
-		return sz.Y
 	}
+		return sz.Y
 }
 
 func axisCross(a l.Axis, sz image.Point) int {
 	if a == l.Horizontal {
 		return sz.Y
-	} else {
-		return sz.X
 	}
+		return sz.X
 }
 
 func axisMainConstraint(a l.Axis, cs l.Constraints) (int, int) {
 	if a == l.Horizontal {
 		return cs.Min.X, cs.Max.X
-	} else {
-		return cs.Min.Y, cs.Max.Y
 	}
+	return cs.Min.Y, cs.Max.Y
 }
 
 func axisCrossConstraint(a l.Axis, cs l.Constraints) (int, int) {
 	if a == l.Horizontal {
 		return cs.Min.Y, cs.Max.Y
-	} else {
-		return cs.Min.X, cs.Max.X
 	}
+	return cs.Min.X, cs.Max.X
 }
 
 func axisConstraints(a l.Axis, mainMin, mainMax, crossMin, crossMax int) l.Constraints {
 	if a == l.Horizontal {
 		return l.Constraints{Min: image.Pt(mainMin, crossMin), Max: image.Pt(mainMax, crossMax)}
-	} else {
-		return l.Constraints{Min: image.Pt(crossMin, mainMin), Max: image.Pt(crossMax, mainMax)}
 	}
+	return l.Constraints{Min: image.Pt(crossMin, mainMin), Max: image.Pt(crossMax, mainMax)}
 }
 
 func EmptySpace(x, y int) func(gtx l.Context) l.Dimensions {
@@ -162,14 +170,14 @@ func EmptyMinHeight() func(gtx l.Context) l.Dimensions {
 }
 
 // CopyContextDimensionsWithMaxAxis copies the dimensions out with the max set by an image.Point along the axis
-func CopyContextDimensionsWithMaxAxis(gtx l.Context, size image.Point, axis l.Axis) l.Context {
+func CopyContextDimensionsWithMaxAxis(gtx l.Context, axis l.Axis) l.Context {
 	ip := image.Point{}
 	if axis == l.Horizontal {
-		ip.Y = size.Y
+		ip.Y = gtx.Constraints.Max.Y
 		ip.X = gtx.Constraints.Max.X
 	} else {
 		ip.Y = gtx.Constraints.Max.Y
-		ip.X = size.X
+		ip.X = gtx.Constraints.Max.X
 	}
 	var ops op.Ops
 	gtx1 := l.NewContext(

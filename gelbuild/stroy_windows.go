@@ -11,9 +11,6 @@ import (
 	"syscall"
 	"time"
 	
-	"github.com/p9c/gel/appdata"
-	"github.com/p9c/gel/apputil"
-	
 	"github.com/davecgh/go-spew/spew"
 	"gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing"
@@ -331,7 +328,7 @@ var (
 
 func GetVersion() string {
 	return fmt.Sprintf(
-		"app information: repo: %s branch: %s commit: %s built"+
+		"node information: repo: %s branch: %s commit: %s built"+
 			": %s tag: %s...\n", URL, GitRef, GitCommit, BuildTime, Tag,
 	)
 }
