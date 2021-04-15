@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	clipboard2 "gioui.org/io/clipboard"
 	"github.com/p9c/opts/binary"
 	"github.com/p9c/opts/meta"
 
@@ -51,14 +52,16 @@ func (s *scaledConfig) Px(v unit.Value) int {
 type Window struct {
 	*Theme
 	*app.Window
-	opts      []app.Option
-	scale     *scaledConfig
-	Width     *uberatomic.Int32 // stores the width at the beginning of render
-	Height    *uberatomic.Int32
-	ops       op.Ops
-	evQ       system.FrameEvent
-	Runner    CallbackQueue
-	overlay   []*func(gtx l.Context)
+	opts             []app.Option
+	scale            *scaledConfig
+	Width            *uberatomic.Int32 // stores the width at the beginning of render
+	Height           *uberatomic.Int32
+	ops              op.Ops
+	evQ              system.FrameEvent
+	Runner           CallbackQueue
+	overlay          []*func(gtx l.Context)
+	clipboardReqs    chan string
+	ClipboardContent string
 }
 
 func (w *Window) PushOverlay(overlay *func(gtx l.Context)) {
@@ -96,10 +99,11 @@ func (w *Window) Overlay(gtx l.Context) {
 // NewWindowP9 creates a new window
 func NewWindowP9(quit chan struct{}) (out *Window) {
 	out = &Window{
-		scale:  &scaledConfig{1},
-		Runner: NewCallbackQueue(32),
-		Width:  uberatomic.NewInt32(0),
-		Height: uberatomic.NewInt32(0),
+		scale:         &scaledConfig{1},
+		Runner:        NewCallbackQueue(32),
+		Width:         uberatomic.NewInt32(0),
+		Height:        uberatomic.NewInt32(0),
+		clipboardReqs: make(chan string, 1),
 	}
 	out.Theme = NewTheme(
 		binary.New(meta.Data{}, false, nil),
@@ -158,6 +162,8 @@ func (w *Window) Run(frame func(ctx l.Context) l.Dimensions, destroy func(), qui
 		ticker := time.NewTicker(time.Second)
 		for {
 			select {
+			case content := <-w.clipboardReqs:
+				w.WriteClipboard(content)
 			case <-ticker.C:
 				if runtime.GOOS == "linux" {
 					var e error
@@ -250,6 +256,9 @@ func (w *Window) processEvents(e event.Event, frame func(ctx l.Context) l.Dimens
 		frame(c)
 		w.Overlay(c)
 		ev.Frame(c.Ops)
+	case clipboard2.Event:
+		I.S(ev)
+		w.ClipboardContent = ev.Text
 	}
 	return nil
 }
