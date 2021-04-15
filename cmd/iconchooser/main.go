@@ -92,27 +92,24 @@ func (s *State) rootWidget() (o l.Widget) {
 			).
 			Fn(gtx)
 	}
-	return func(gtx l.Context) l.Dimensions {
-		return s.VFlex().AlignStart().
-			Rigid(s.Fill("DocBg", l.Center, 0, 0,
-				s.Inset(0.5,
-					s.Flex().AlignStart().
-						Rigid(
-							s.H4("material icons").Fn,
-						).
-						Rigid(s.Inset(0.5, gel.EmptySpace(0, 0)).Fn).
-						Flexed(1,
-							s.Body1("click to copy icon's variable name").Fn,
-						).Fn,
-				).Fn,
+	return s.VFlex().AlignStart().
+		Rigid(s.Fill("DocBg", l.Center, 0, 0,
+			s.Inset(0.5,
+				s.Flex().AlignStart().
+					Rigid(
+						s.H4("material icons").Fn,
+					).
+					Rigid(s.Inset(0.5, gel.EmptySpace(0, 0)).Fn).
+					Flexed(1,
+						s.Body1("click to copy icon's variable name").Fn,
+					).Fn,
 			).Fn,
-			).
-			Flexed(1,
-				s.Inset(0.25,
-					lis.Vertical().Length(len(ow)).ListElement(le).Fn,
-				).Fn,
-			).
-			Fn(gtx)
-	}
-	return
+		).Fn,
+		).
+		Flexed(1,
+			s.Inset(0.25,
+				lis.Vertical().Length(len(ow)).ListElement(le).Fn,
+			).Fn,
+		).
+		Fn
 }

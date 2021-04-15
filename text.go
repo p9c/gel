@@ -1,17 +1,16 @@
 package gel
 
 import (
-	"fmt"
 	"image"
 	"unicode/utf8"
-	
+
 	l "gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/unit"
-	
+
 	"golang.org/x/image/math/fixed"
 )
 
@@ -101,31 +100,31 @@ func (l *lineIterator) Next() (text.Layout, image.Point, bool) {
 	return text.Layout{}, image.Point{}, false
 }
 
-func linesDimens(lines []text.Line) l.Dimensions {
-	var width fixed.Int26_6
-	var h int
-	var baseline int
-	if len(lines) > 0 {
-		baseline = lines[0].Ascent.Ceil()
-		var prevDesc fixed.Int26_6
-		for _, l := range lines {
-			h += (prevDesc + l.Ascent).Ceil()
-			prevDesc = l.Descent
-			if l.Width > width {
-				width = l.Width
-			}
-		}
-		h += lines[len(lines)-1].Descent.Ceil()
-	}
-	w := width.Ceil()
-	return l.Dimensions{
-		Size: image.Point{
-			X: w,
-			Y: h,
-		},
-		Baseline: h - baseline,
-	}
-}
+// func linesDimens(lines []text.Line) l.Dimensions {
+// 	var width fixed.Int26_6
+// 	var h int
+// 	var baseline int
+// 	if len(lines) > 0 {
+// 		baseline = lines[0].Ascent.Ceil()
+// 		var prevDesc fixed.Int26_6
+// 		for _, l := range lines {
+// 			h += (prevDesc + l.Ascent).Ceil()
+// 			prevDesc = l.Descent
+// 			if l.Width > width {
+// 				width = l.Width
+// 			}
+// 		}
+// 		h += lines[len(lines)-1].Descent.Ceil()
+// 	}
+// 	w := width.Ceil()
+// 	return l.Dimensions{
+// 		Size: image.Point{
+// 			X: w,
+// 			Y: h,
+// 		},
+// 		Baseline: h - baseline,
+// 	}
+// }
 
 func (t *Text) Fn(gtx l.Context, s text.Shaper, font text.Font, size unit.Value, txt string) l.Dimensions {
 	cs := gtx.Constraints
@@ -159,37 +158,37 @@ func (t *Text) Fn(gtx l.Context, s text.Shaper, font text.Font, size unit.Value,
 	return dims
 }
 
-func textPadding(lines []text.Line) (padding image.Rectangle) {
-	if len(lines) == 0 {
-		return
-	}
-	first := lines[0]
-	if d := first.Ascent + first.Bounds.Min.Y; d < 0 {
-		padding.Min.Y = d.Ceil()
-	}
-	last := lines[len(lines)-1]
-	if d := last.Bounds.Max.Y - last.Descent; d > 0 {
-		padding.Max.Y = d.Ceil()
-	}
-	if d := first.Bounds.Min.X; d < 0 {
-		padding.Min.X = d.Ceil()
-	}
-	if d := first.Bounds.Max.X - first.Width; d > 0 {
-		padding.Max.X = d.Ceil()
-	}
-	return
-}
+// func textPadding(lines []text.Line) (padding image.Rectangle) {
+// 	if len(lines) == 0 {
+// 		return
+// 	}
+// 	first := lines[0]
+// 	if d := first.Ascent + first.Bounds.Min.Y; d < 0 {
+// 		padding.Min.Y = d.Ceil()
+// 	}
+// 	last := lines[len(lines)-1]
+// 	if d := last.Bounds.Max.Y - last.Descent; d > 0 {
+// 		padding.Max.Y = d.Ceil()
+// 	}
+// 	if d := first.Bounds.Min.X; d < 0 {
+// 		padding.Min.X = d.Ceil()
+// 	}
+// 	if d := first.Bounds.Max.X - first.Width; d > 0 {
+// 		padding.Max.X = d.Ceil()
+// 	}
+// 	return
+// }
 
-func align(align text.Alignment, width fixed.Int26_6, maxWidth int) fixed.Int26_6 {
-	mw := fixed.I(maxWidth)
-	switch align {
-	case text.Middle:
-		return fixed.I(((mw - width) / 2).Floor())
-	case text.End:
-		return fixed.I((mw - width).Floor())
-	case text.Start:
-		return 0
-	default:
-		panic(fmt.Errorf("unknown alignment %v", align))
-	}
-}
+// func align(align text.Alignment, width fixed.Int26_6, maxWidth int) fixed.Int26_6 {
+// 	mw := fixed.I(maxWidth)
+// 	switch align {
+// 	case text.Middle:
+// 		return fixed.I(((mw - width) / 2).Floor())
+// 	case text.End:
+// 		return fixed.I((mw - width).Floor())
+// 	case text.Start:
+// 		return 0
+// 	default:
+// 		panic(fmt.Errorf("unknown alignment %v", align))
+// 	}
+// }

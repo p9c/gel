@@ -21,6 +21,7 @@ func main() {
 	quit := qu.T()
 	state := NewState(quit)
 	var e error
+	I.Ln("logging")
 	rootWidget := state.rootWidget()
 	if e = state.Window.
 		Size(48, 32).
@@ -31,5 +32,5 @@ func main() {
 }
 
 func (s *State) rootWidget() l.Widget {
-	return func(gtx l.Context) l.Dimensions { return s.Direction().Center().Embed(s.H2("hello world!").Fn).Fn(gtx) }
+	return s.Direction().Center().Embed(s.H2("hello world!").Fn).Fn
 }

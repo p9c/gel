@@ -3,10 +3,9 @@ package gel
 import (
 	"github.com/p9c/opts/text"
 	icons2 "golang.org/x/exp/shiny/materialdesign/icons"
-	
+
 	l "gioui.org/layout"
-	
-	"github.com/p9c/gel/clipboard"
+	"github.com/atotto/clipboard"
 )
 
 type Password struct {
@@ -81,15 +80,18 @@ func (w *Window) Password(
 		p.pass.Focus()
 	}
 	copyClickableFn := func() {
-		go clipboard.Set(p.pass.Text())
+		if e := clipboard.WriteAll(p.pass.Text()); E.Chk(e) {
+		}
 		p.pass.Focus()
 	}
 	pasteClickableFn := func() {
-		go func() {
-			txt := p.pass.Text()
-			txt = txt[:p.pass.Caret.Col] + clipboard.Get() + txt[p.pass.Caret.Col:]
-			p.pass.SetText(txt)
-		}()
+		var e error
+		var cb string
+		if cb, e = clipboard.ReadAll(); E.Chk(e) {
+		}
+		cb = findSpaceRegexp.ReplaceAllString(cb, " ")
+		p.pass.Insert(cb)
+		p.pass.changeHook(cb)
 		p.pass.Focus()
 	}
 	p.copyClickable.SetClick(copyClickableFn)
@@ -150,7 +152,7 @@ func (p *Password) Fn(gtx l.Context) l.Dimensions {
 			visIcon = &icons2.ActionVisibilityOff
 			p.pass.Mask(0)
 		}
-		
+
 		return p.Border().
 			Width(0.125).
 			CornerRadius(0.0).
@@ -195,7 +197,7 @@ func (p *Password) GetPassword() string {
 }
 
 func (p *Password) Wipe() {
-	p.passInput.editor.rr.Zero()
+	p.passInput.editor.editBuffer.Zero()
 	p.passInput.editor.SetText("")
 }
 

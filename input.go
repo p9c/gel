@@ -68,29 +68,14 @@ func (w *Window) Input(txt, hint, borderColorFocused, borderColorUnfocused, back
 		p.editor.Focus()
 	}
 	pasteClickableFn := func() {
-		col := p.editor.Caret.Col
-		if p.SetPasteFunc != nil {
-			if p.SetPasteFunc() {
-				return
-			}
-		}
-		txt = p.editor.Text()
 		var e error
 		var cb string
 		if cb, e = clipboard.ReadAll(); E.Chk(e) {
 		}
-		// the SetPasteFunc is a function that screens the clipboard input and
-		// does something other than directly paste into the field. If it returns
-		// true, this means it has captured input that is processed other than as
-		// a simple paste
-		// todo: this looks like it is just removing linebreaks, comment is lies?
-		// todo: looks like just unimplemented... also the other closures in the struct at the top
 		cb = findSpaceRegexp.ReplaceAllString(cb, " ")
-		txt = txt[:col] + cb + txt[col:]
-		p.editor.SetText(txt)
-		p.editor.Move(col + len(cb))
-		p.editor.Focus()
+		p.editor.Insert(cb)
 		p.editor.changeHook(txt)
+		p.editor.Focus()
 	}
 	p.clearButton.
 		Icon(
