@@ -9,7 +9,8 @@ and a top-bar side-bar status-bar multi-page application framework, and a backgr
 interruptions to the rendering of the interfaces.
 
 There is also a state-widget pool generated with the stuff in `poolgen/` that you initialize before starting the render
-loop that can then be used anywhere to add new clickables, bools, inputs and so on.
+loop that can then be used anywhere to add new clickables, bools, inputs and so on, without having to double up with a 
+pre-specification, they allocate first run and then cache thereafter, maintaining their state.
 
 Gel uses fluent programming techniques to simplify and denoise the visual structure of Gio widget definitions. To take
 maximum advantage of it, make use of the fact that Go allows breaking lines after dot operators between the chained
