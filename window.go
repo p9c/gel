@@ -11,6 +11,7 @@ import (
 	"github.com/p9c/opts/binary"
 	"github.com/p9c/opts/meta"
 
+	"github.com/p9c/gel/clipboard"
 	"github.com/p9c/gel/fonts/p9fonts"
 
 	"gioui.org/io/event"
@@ -50,14 +51,14 @@ func (s *scaledConfig) Px(v unit.Value) int {
 type Window struct {
 	*Theme
 	*app.Window
-	opts    []app.Option
-	scale   *scaledConfig
-	Width   *uberatomic.Int32 // stores the width at the beginning of render
-	Height  *uberatomic.Int32
-	ops     op.Ops
-	evQ     system.FrameEvent
-	Runner  CallbackQueue
-	overlay []*func(gtx l.Context)
+	opts      []app.Option
+	scale     *scaledConfig
+	Width     *uberatomic.Int32 // stores the width at the beginning of render
+	Height    *uberatomic.Int32
+	ops       op.Ops
+	evQ       system.FrameEvent
+	Runner    CallbackQueue
+	overlay   []*func(gtx l.Context)
 }
 
 func (w *Window) PushOverlay(overlay *func(gtx l.Context)) {
@@ -105,6 +106,7 @@ func NewWindowP9(quit chan struct{}) (out *Window) {
 		p9fonts.Collection(), quit,
 	)
 	out.Theme.WidgetPool = out.NewPool()
+	clipboard.Start()
 	return
 }
 
@@ -147,6 +149,7 @@ func (w *Window) Open() (out *Window) {
 		w.Window = app.NewWindow(w.opts...)
 		w.opts = nil
 	}
+
 	return w
 }
 
@@ -177,8 +180,8 @@ func (w *Window) Run(frame func(ctx l.Context) l.Dimensions, destroy func(), qui
 				}
 			case <-quit.Wait():
 				return
-				// by repeating selectors we decrease the chance of a runner delaying
-				// a frame event hitting the physical frame deadline
+			// by repeating selectors we decrease the chance of a runner delaying
+			// a frame event hitting the physical frame deadline
 			case ev := <-w.Window.Events():
 				if e = w.processEvents(ev, frame, destroy); E.Chk(e) {
 					return
@@ -218,35 +221,35 @@ func (w *Window) Run(frame func(ctx l.Context) l.Dimensions, destroy func(), qui
 			}
 		}
 	}
-	go runner()
 	switch runtime.GOOS {
 	case "ios", "android":
+		go runner()
 	default:
-		<-quit
+		runner()
 	}
-	return nil
+	return
 }
 
 func (w *Window) processEvents(e event.Event, frame func(ctx l.Context) l.Dimensions, destroy func()) error {
-	switch e := e.(type) {
+	switch ev := e.(type) {
 	case system.DestroyEvent:
-		D.Ln("received destroy event", e.Err)
+		D.Ln("received destroy event", ev.Err)
 		// if e.Err != nil {
 		// 	if strings.Contains(e.Err.Error(), "eglCreateWindowSurface failed") {
 		// 		return nil
 		// 	}
 		// }
 		destroy()
-		return e.Err
+		return ev.Err
 	case system.FrameEvent:
 		ops := op.Ops{}
-		c := l.NewContext(&ops, e)
+		c := l.NewContext(&ops, ev)
 		// update dimensions for responsive sizing widgets
 		w.Width.Store(int32(c.Constraints.Max.X))
 		w.Height.Store(int32(c.Constraints.Max.Y))
 		frame(c)
 		w.Overlay(c)
-		e.Frame(c.Ops)
+		ev.Frame(c.Ops)
 	}
 	return nil
 }

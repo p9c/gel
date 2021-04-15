@@ -1,8 +1,9 @@
 package clipboard
 
 import (
-	"github.com/p9c/gel/version"
 	"github.com/p9c/log"
+
+	"github.com/p9c/gel/version"
 )
 
 var subsystem = log.AddLoggerSubsystem(version.PathBase)
@@ -11,10 +12,10 @@ var F, E, W, I, D, T log.LevelPrinter = log.GetLogPrinterSet(subsystem)
 func init() {
 	// to filter out this package, uncomment the following
 	// var _ = log.AddFilteredSubsystem(subsystem)
-	
+
 	// to highlight this package, uncomment the following
 	// var _ = log.AddHighlightedSubsystem(subsystem)
-	
+
 	// these are here to test whether they are working
 	// F.Ln("F.Ln")
 	// E.Ln("E.Ln")
