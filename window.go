@@ -1,20 +1,22 @@
 package gel
 
 import (
-	"github.com/p9c/monorepo/pkg/fonts/p9fonts"
-	"github.com/p9c/monorepo/pkg/opts/binary"
-	"github.com/p9c/monorepo/pkg/opts/meta"
 	"math"
 	"os/exec"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
-	
+
+	"github.com/p9c/opts/binary"
+	"github.com/p9c/opts/meta"
+
+	"github.com/p9c/gel/fonts/p9fonts"
+
 	"gioui.org/io/event"
-	
-	"github.com/p9c/monorepo/pkg/qu"
-	
+
+	"github.com/p9c/qu"
+
 	"gioui.org/app"
 	"gioui.org/io/system"
 	l "gioui.org/layout"
@@ -149,7 +151,7 @@ func (w *Window) Open() (out *Window) {
 }
 
 func (w *Window) Run(frame func(ctx l.Context) l.Dimensions, destroy func(), quit qu.C,) (e error) {
-	runner := func(){
+	runner := func() {
 		ticker := time.NewTicker(time.Second)
 		for {
 			select {

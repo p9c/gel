@@ -1,4 +1,4 @@
-// +build linux,!android freebsd
+// +build linux,!android,!ios,!nox11 freebsd openbsd
 
 package clipboard
 

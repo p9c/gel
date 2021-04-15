@@ -1,11 +1,12 @@
 package main
 
 import (
-	"github.com/p9c/monorepo/pkg/apputil"
 	"go/format"
 	"io/ioutil"
 	"net/http"
 	"strings"
+
+	"github.com/p9c/gel/apputil"
 )
 
 func main() {
@@ -13,7 +14,9 @@ func main() {
 	filename := "../icons/icons.go"
 	apputil.EnsureDir(filename)
 	var e error
-	if e = ioutil.WriteFile(filename, src, 0600); E.Chk(e){ panic(e) }
+	if e = ioutil.WriteFile(filename, src, 0600); E.Chk(e) {
+		panic(e)
+	}
 }
 
 func getIcons() (iconNames []string) {
@@ -53,7 +56,9 @@ import (
 var Material = map[string]*[]byte {
 `
 	for i := range iconNames {
-		if iconNames[i]=="" { continue }
+		if iconNames[i] == "" {
+			continue
+		}
 		o += "\t" + `"` + iconNames[i] + `": &icons.` + iconNames[i] + ",\n"
 	}
 	o += "}\n"

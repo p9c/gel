@@ -2,13 +2,12 @@ package gel
 
 import (
 	l "gioui.org/layout"
-	"github.com/urfave/cli"
 	"golang.org/x/exp/shiny/materialdesign/icons"
 )
 
 type Multi struct {
 	*Window
-	lines            *cli.StringSlice
+	lines            *[]string
 	clickables       []*Clickable
 	buttons          []*ButtonLayout
 	input            *Input
@@ -20,7 +19,7 @@ type Multi struct {
 }
 
 func (w *Window) Multiline(
-	txt *cli.StringSlice,
+	txt *[]string,
 	borderColorFocused, borderColorUnfocused, backgroundColor string,
 	size float32,
 	handle func(txt []string),
@@ -205,7 +204,7 @@ func (m *Multi) PopulateWidgets() *Multi {
 					} else {
 						*m.lines = append((*m.lines)[:x], (*m.lines)[x+1:]...)
 					}
-					m.handle(m.lines.Value())
+					m.handle(*m.lines)
 				})).
 				Icon(
 					m.Icon().Scale(1.5).Color("DocText").Src(&icons.ActionDelete),

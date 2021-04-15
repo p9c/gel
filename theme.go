@@ -1,14 +1,15 @@
 package gel
 
 import (
-	"gioui.org/text"
-	"gioui.org/unit"
-	"github.com/p9c/monorepo/pkg/opts/binary"
-	"github.com/p9c/monorepo/pkg/qu"
 	"os/exec"
 	"runtime"
 	"strconv"
 	"strings"
+
+	"gioui.org/text"
+	"gioui.org/unit"
+	"github.com/p9c/opts/binary"
+	"github.com/p9c/qu"
 )
 
 type Theme struct {

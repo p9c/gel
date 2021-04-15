@@ -5,9 +5,10 @@ import (
 
 	l "gioui.org/layout"
 	"github.com/atotto/clipboard"
-	"github.com/p9c/monorepo/pkg/icons"
-	"github.com/p9c/monorepo/pkg/interrupt"
-	"github.com/p9c/monorepo/pkg/qu"
+	"github.com/p9c/interrupt"
+	"github.com/p9c/qu"
+
+	"github.com/p9c/gel/icons"
 
 	"github.com/p9c/gel"
 )
@@ -36,7 +37,7 @@ func main() {
 			quit.Q()
 		}, quit,
 		); E.Chk(e) {
-		
+
 	}
 }
 
