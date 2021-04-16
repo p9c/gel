@@ -60,7 +60,7 @@ type Window struct {
 	evQ                system.FrameEvent
 	Runner             CallbackQueue
 	overlay            []*func(gtx l.Context)
-	clipboardWriteReqs chan string
+	ClipboardWriteReqs chan string
 	ClipboardReadReqs  chan func(string)
 	ClipboardContent   string
 	clipboardReadReady qu.C
@@ -105,7 +105,7 @@ func NewWindowP9(quit chan struct{}) (out *Window) {
 		Runner:             NewCallbackQueue(32),
 		Width:              uberatomic.NewInt32(0),
 		Height:             uberatomic.NewInt32(0),
-		clipboardWriteReqs: make(chan string, 1),
+		ClipboardWriteReqs: make(chan string, 1),
 		ClipboardReadReqs:  make(chan func(string), 32),
 		clipboardReadReady: qu.Ts(1),
 	}
@@ -166,7 +166,7 @@ func (w *Window) Run(frame func(ctx l.Context) l.Dimensions, destroy func(), qui
 		ticker := time.NewTicker(time.Second)
 		for {
 			select {
-			case content := <-w.clipboardWriteReqs:
+			case content := <-w.ClipboardWriteReqs:
 				w.WriteClipboard(content)
 			case fn := <-w.ClipboardReadReqs:
 				go func(){

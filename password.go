@@ -5,7 +5,6 @@ import (
 	icons2 "golang.org/x/exp/shiny/materialdesign/icons"
 
 	l "gioui.org/layout"
-	"github.com/atotto/clipboard"
 )
 
 type Password struct {
@@ -56,43 +55,18 @@ func (w *Window) Password(
 	p.showClickableFn = func(col string) {
 		D.Ln("show clickable clicked")
 		p.hide = !p.hide
-		// if !p.hide {
-		// 	p.unhideButton = p.unhideButton.
-		// 		Color("Primary").
-		// 		Icon(
-		// 			Theme.Icon().
-		// 				Color(col).
-		// 				Src(&icons2.ActionVisibility),
-		// 		)
-		// 	// p.pass.Mask('•')
-		// 	p.passInput.Color(col)
-		// } else {
-		// 	p.unhideButton = p.unhideButton.
-		// 		Color("DocText").
-		// 		Icon(
-		// 			Theme.Icon().
-		// 				Color(p.borderColor).
-		// 				Src(&icons2.ActionVisibilityOff),
-		// 		)
-		// 	// p.pass.Mask(0)
-		// 	p.passInput.Color(col)
-		// }
-		p.pass.Focus()
 	}
 	copyClickableFn := func() {
-		if e := clipboard.WriteAll(p.pass.Text()); E.Chk(e) {
-		}
+		p.ClipboardWriteReqs <- p.pass.Text()
 		p.pass.Focus()
 	}
 	pasteClickableFn := func() {
-		var e error
-		var cb string
-		if cb, e = clipboard.ReadAll(); E.Chk(e) {
+		p.ClipboardReadReqs <- func(cs string) {
+			cs = findSpaceRegexp.ReplaceAllString(cs, " ")
+			p.pass.Insert(cs)
+			p.pass.changeHook(cs)
+			p.pass.Focus()
 		}
-		cb = findSpaceRegexp.ReplaceAllString(cb, " ")
-		p.pass.Insert(cb)
-		p.pass.changeHook(cb)
-		p.pass.Focus()
 	}
 	p.copyClickable.SetClick(copyClickableFn)
 	p.pasteClickable.SetClick(pasteClickableFn)

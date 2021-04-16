@@ -2,20 +2,19 @@ package gel
 
 import (
 	"image/color"
-	
+
 	l "gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/unit"
-	
+
 	"github.com/p9c/gel/f32color"
 )
 
 // TextInput is a simple text input widget
 type TextInput struct {
 	*Window
-	// Theme    *Theme
 	font     text.Font
 	textSize unit.Value
 	// Color is the text color.
@@ -24,8 +23,10 @@ type TextInput struct {
 	hint string
 	// HintColor is the color of hint text.
 	hintColor color.NRGBA
-	editor    *Editor
-	shaper    text.Shaper
+	// SelectionColor is the color of the background for selected text.
+	selectionColor color.NRGBA
+	editor         *Editor
+	shaper         text.Shaper
 }
 
 // TextInput creates a simple text input widget
@@ -36,14 +37,15 @@ func (w *Window) TextInput(editor *Editor, hint string) *TextInput {
 		panic(e)
 	}
 	ti := &TextInput{
-		Window:    w,
-		editor:    editor,
-		textSize:  w.TextSize,
-		font:      fon,
-		color:     w.Colors.GetNRGBAFromName("DocText"),
-		shaper:    w.shaper,
-		hint:      hint,
-		hintColor: w.Colors.GetNRGBAFromName("Hint"),
+		Window:         w,
+		editor:         editor,
+		textSize:       w.TextSize,
+		font:           fon,
+		color:          w.Colors.GetNRGBAFromName("DocText"),
+		shaper:         w.shaper,
+		hint:           hint,
+		hintColor:      w.Colors.GetNRGBAFromName("Hint"),
+		selectionColor: w.Colors.GetNRGBAFromName("scrim"),
 	}
 	ti.Font("bariol regular")
 	return ti
@@ -71,6 +73,12 @@ func (ti *TextInput) Color(color string) *TextInput {
 	return ti
 }
 
+// SelectionColor sets the color to render the text
+func (ti *TextInput) SelectionColor(color string) *TextInput {
+	ti.selectionColor = ti.Theme.Colors.GetNRGBAFromName(color)
+	return ti
+}
+
 // Hint sets the text to show when the box is empty
 func (ti *TextInput) Hint(hint string) *TextInput {
 	ti.hint = hint
@@ -84,34 +92,52 @@ func (ti *TextInput) HintColor(color string) *TextInput {
 }
 
 // Fn renders the text input widget
-func (ti *TextInput) Fn(c l.Context) l.Dimensions {
-	defer op.Save(c.Ops).Load()
-	macro := op.Record(c.Ops)
-	paint.ColorOp{Color: ti.hintColor}.Add(c.Ops)
-	tl := Text{alignment: ti.editor.alignment}
-	dims := tl.Fn(c, ti.shaper, ti.font, ti.textSize, ti.hint)
+func (ti *TextInput) Fn(gtx l.Context) l.Dimensions {
+	defer op.Save(gtx.Ops).Load()
+	macro := op.Record(gtx.Ops)
+	paint.ColorOp{Color: ti.hintColor}.Add(gtx.Ops)
+	var maxlines int
+	if ti.editor.singleLine {
+		maxlines = 1
+	}
+	tl := Label{
+		Window:    ti.Window,
+		font:      ti.font,
+		color:     ti.hintColor,
+		alignment: ti.editor.alignment,
+		maxLines:  maxlines,
+		text:      ti.hint,
+		textSize:  ti.textSize,
+		shaper:    ti.shaper,
+	}
+	dims := tl.Fn(gtx)
 	call := macro.Stop()
-	if w := dims.Size.X; c.Constraints.Min.X < w {
-		c.Constraints.Min.X = w
+	if w := dims.Size.X; gtx.Constraints.Min.X < w {
+		gtx.Constraints.Min.X = w
 	}
-	if h := dims.Size.Y; c.Constraints.Min.Y < h {
-		c.Constraints.Min.Y = h
+	if h := dims.Size.Y; gtx.Constraints.Min.Y < h {
+		gtx.Constraints.Min.Y = h
 	}
-	dims = ti.editor.Layout(c, ti.shaper, ti.font, ti.textSize)
-	disabled := c.Queue == nil
+	dims = ti.editor.Layout(gtx, ti.shaper, ti.font, ti.textSize)
+	disabled := gtx.Queue == nil
 	if ti.editor.Len() > 0 {
-		textColor := ti.color
-		if disabled {
-			textColor = f32color.MulAlpha(textColor, 150)
-		}
-		paint.ColorOp{Color: textColor}.Add(c.Ops)
-		ti.editor.PaintText(c)
+		paint.ColorOp{Color: blendDisabledColor(disabled, ti.selectionColor)}.Add(gtx.Ops)
+		ti.editor.PaintSelection(gtx)
+		paint.ColorOp{Color: blendDisabledColor(disabled, ti.color)}.Add(gtx.Ops)
+		ti.editor.PaintText(gtx)
 	} else {
-		call.Add(c.Ops)
+		call.Add(gtx.Ops)
 	}
 	if !disabled {
-		paint.ColorOp{Color: ti.color}.Add(c.Ops)
-		ti.editor.PaintCaret(c)
+		paint.ColorOp{Color: ti.color}.Add(gtx.Ops)
+		ti.editor.PaintCaret(gtx)
 	}
 	return dims
+}
+
+func blendDisabledColor(disabled bool, c color.NRGBA) color.NRGBA {
+	if disabled {
+		return f32color.Disabled(c)
+	}
+	return c
 }

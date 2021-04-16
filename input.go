@@ -2,12 +2,10 @@ package gel
 
 import (
 	"regexp"
-	
+
 	"golang.org/x/exp/shiny/materialdesign/icons"
-	
+
 	l "gioui.org/layout"
-	
-	"github.com/atotto/clipboard"
 )
 
 type Input struct {
@@ -32,10 +30,11 @@ type Input struct {
 
 var findSpaceRegexp = regexp.MustCompile(`\s+`)
 
-func (w *Window) Input(txt, hint, borderColorFocused, borderColorUnfocused, backgroundColor string,
+func (w *Window) Input(
+	txt, hint, borderColorFocused, borderColorUnfocused, backgroundColor string,
 	submit, change func(txt string),
 ) *Input {
-	editor := w.Editor().SingleLine().Submit(true)
+	editor := w.Editor().SingleLine().Submit(false)
 	input := w.TextInput(editor, hint).TextScale(1)
 	p := &Input{
 		Window:               w,
@@ -59,23 +58,20 @@ func (w *Window) Input(txt, hint, borderColorFocused, borderColorUnfocused, back
 	p.pasteButton = w.IconButton(p.pasteClickable)
 	clearClickableFn := func() {
 		p.editor.SetText("")
-		p.editor.Focus()
 		p.editor.changeHook("")
+		p.editor.Focus()
 	}
 	copyClickableFn := func() {
-		if e := clipboard.WriteAll(p.editor.Text()); E.Chk(e) {
-		}
+		p.ClipboardWriteReqs <- p.editor.Text()
 		p.editor.Focus()
 	}
 	pasteClickableFn := func() {
-		var e error
-		var cb string
-		if cb, e = clipboard.ReadAll(); E.Chk(e) {
+		p.ClipboardReadReqs <- func(cs string) {
+			cs = findSpaceRegexp.ReplaceAllString(cs, " ")
+			p.editor.Insert(cs)
+			p.editor.changeHook(cs)
+			p.editor.Focus()
 		}
-		cb = findSpaceRegexp.ReplaceAllString(cb, " ")
-		p.editor.Insert(cb)
-		p.editor.changeHook(txt)
-		p.editor.Focus()
 	}
 	p.clearButton.
 		Icon(

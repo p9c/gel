@@ -69,7 +69,7 @@ type Editor struct {
 	shapes       []line
 	dims         layout.Dimensions
 	requestFocus bool
-	Caret        struct {
+	caret        struct {
 		on     bool
 		scroll bool
 		// start is the current caret position, and also the start position of
@@ -91,6 +91,7 @@ type Editor struct {
 	events []EditorEvent
 	// prevEvents is the number of events from the previous frame.
 	prevEvents int
+	// the following are hooks for change events on the editor
 	submitHook func(string)
 	changeHook func(string)
 	focusHook  func(bool)
@@ -174,9 +175,20 @@ type SubmitEvent struct {
 	Text string
 }
 
+// A SelectEvent is generated when the user selects some text, or changes the
+// selection (e.g. with a shift-click), including if they remove the
+// selection. The selected text is not part of the event, on the theory that
+// it could be a relatively expensive operation (for a large editor), most
+// applications won't actually care about it, and those that do can call
+// Editor.SelectedText() (which can be empty).
+type SelectEvent struct{}
+
 type line struct {
-	offset image.Point
-	clip   op.CallOp
+	offset         image.Point
+	clip           op.CallOp
+	selected       bool
+	selectionYOffs int
+	selectionSize  image.Point
 }
 
 const (
@@ -193,7 +205,7 @@ func (e *Editor) Events() []EditorEvent {
 }
 
 func (e *Editor) processEvents(gtx layout.Context) {
-	// Flush events from before the previous Open.
+	// Flush events from before the previous layout.
 	n := copy(e.events, e.events[e.prevEvents:])
 	e.events = e.events[:n]
 	e.prevEvents = n
@@ -201,107 +213,12 @@ func (e *Editor) processEvents(gtx layout.Context) {
 		// Can't process events without a shaper.
 		return
 	}
+	oldStart, oldLen := min(e.caret.start.ofs, e.caret.end.ofs), e.SelectionLen()
 	e.processPointer(gtx)
 	e.processKey(gtx)
-}
-
-func (e *Editor) Alignment(alignment text.Alignment) *Editor {
-	e.alignment = alignment
-	return e
-}
-
-func (e *Editor) SingleLine() *Editor {
-	e.singleLine = true
-	return e
-}
-
-func (e *Editor) Submit(submit bool) *Editor {
-	e.submit = submit
-	return e
-}
-
-func (e *Editor) Mask(mask rune) *Editor {
-	e.mask = mask
-	return e
-}
-
-func (e *Editor) SetSubmit(submitFn func(txt string)) *Editor {
-	e.submitHook = submitFn
-	return e
-}
-
-func (e *Editor) SetChange(changeFn func(txt string)) *Editor {
-	e.changeHook = changeFn
-	return e
-}
-
-func (e *Editor) SetFocus(focusFn func(is bool)) *Editor {
-	e.focusHook = focusFn
-	return e
-}
-
-// offsetToScreenPos takes an offset into the editor text (e.g.
-// e.caret.end.ofs) and returns a combinedPos that corresponds to its current
-// screen position, as well as an iterator that lets you get the combinedPos
-// of a later offset. The offsets given to offsetToScreenPos and to the
-// returned iterator must be sorted, lowest first, and they must be valid (0
-// <= offset <= e.Len()).
-//
-// This function is written this way to take advantage of previous work done
-// for offsets after the first. Otherwise you have to start from the top each
-// time.
-func (e *Editor) offsetToScreenPos(offset int) (combinedPos, func(int) combinedPos) {
-	var col, line, idx int
-	var x fixed.Int26_6
-
-	l := e.lines[line]
-	y := l.Ascent.Ceil()
-	prevDesc := l.Descent
-
-	iter := func(offset int) combinedPos {
-	LOOP:
-		for {
-			for ; col < len(l.Layout.Advances); col++ {
-				if idx >= offset {
-					break LOOP
-				}
-
-				x += l.Layout.Advances[col]
-				_, s := e.editBuffer.runeAt(idx)
-				idx += s
-			}
-			if lastLine := line == len(e.lines)-1; lastLine || idx > offset {
-				break LOOP
-			}
-
-			line++
-			x = 0
-			col = 0
-			l = e.lines[line]
-			y += (prevDesc + l.Ascent).Ceil()
-			prevDesc = l.Descent
-		}
-		return combinedPos{
-			lineCol: screenPos{Y: line, X: col},
-			x:       x + align(e.alignment, e.lines[line].Width, e.viewSize.X),
-			y:       y,
-			ofs:     offset,
-		}
-	}
-	return iter(offset), iter
-}
-
-func (e *Editor) makeValidCaret(positions ...*combinedPos) {
-	// Jump through some hoops to order the offsets given to offsetToScreenPos,
-	// but still be able to update them correctly with the results thereof.
-	positions = append(positions, &e.Caret.start, &e.Caret.end)
-	sort.Slice(positions, func(i, j int) bool {
-		return positions[i].ofs < positions[j].ofs
-	})
-	var iter func(offset int) combinedPos
-	*positions[0], iter = e.offsetToScreenPos(positions[0].ofs)
-	for _, cp := range positions[1:] {
-		*cp = iter(cp.ofs)
+	if newStart, newLen := min(e.caret.start.ofs, e.caret.end.ofs),
+		e.SelectionLen(); oldStart != newStart || oldLen != newLen {
+		e.events = append(e.events, SelectEvent{})
 	}
 }
 
@@ -312,12 +229,6 @@ func (e *Editor) makeValid(positions ...*combinedPos) {
 	e.lines, e.dims = e.layoutText(e.shaper)
 	e.makeValidCaret(positions...)
 	e.valid = true
-}
-
-// ClearSelection clears the selection, by setting the selection end equal to
-// the selection start.
-func (e *Editor) ClearSelection() {
-	e.Caret.end = e.Caret.start
 }
 
 func (e *Editor) processPointer(gtx layout.Context) {
@@ -346,7 +257,7 @@ func (e *Editor) processPointer(gtx layout.Context) {
 			switch {
 			case evt.Type == gesture.TypePress && evt.Source == pointer.Mouse,
 				evt.Type == gesture.TypeClick:
-				prevCaretPos := e.Caret.start
+				prevCaretPos := e.caret.start
 				e.blinkStart = gtx.Now
 				e.moveCoord(image.Point{
 					X: int(math.Round(float64(evt.Position.X))),
@@ -354,14 +265,14 @@ func (e *Editor) processPointer(gtx layout.Context) {
 				})
 				e.requestFocus = true
 				if e.scroller.State() != gesture.StateFlinging {
-					e.Caret.scroll = true
+					e.caret.scroll = true
 				}
 
 				if evt.Modifiers == key.ModShift {
 					// If they clicked closer to the end, then change the end to
 					// where the caret used to be (effectively swapping start & end).
-					if abs(e.Caret.end.ofs-e.Caret.start.ofs) < abs(e.Caret.start.ofs-prevCaretPos.ofs) {
-						e.Caret.end = prevCaretPos
+					if abs(e.caret.end.ofs-e.caret.start.ofs) < abs(e.caret.start.ofs-prevCaretPos.ofs) {
+						e.caret.end = prevCaretPos
 					}
 				} else {
 					e.ClearSelection()
@@ -394,7 +305,7 @@ func (e *Editor) processPointer(gtx layout.Context) {
 						X: int(math.Round(float64(evt.Position.X))),
 						Y: int(math.Round(float64(evt.Position.Y))),
 					})
-					e.Caret.scroll = true
+					e.caret.scroll = true
 
 					if release {
 						e.dragging = false
@@ -431,31 +342,28 @@ func (e *Editor) processKey(gtx layout.Context) {
 			e.focused = ke.Focus
 			e.focusHook(ke.Focus)
 		case key.Event:
-			if !e.focused {
+			if !e.focused || ke.State != key.Press {
 				break
 			}
 			if e.submit && (ke.Name == key.NameReturn || ke.Name == key.NameEnter) {
-				if ke.State == key.Release {
-					break
-				}
 				if !ke.Modifiers.Contain(key.ModShift) {
 					e.events = append(e.events, SubmitEvent{
 						Text: e.Text(),
 					})
-					e.submitHook(e.Text())
-					return
+					continue
 				}
 			}
 			if e.command(gtx, ke) {
-				e.Caret.scroll = true
+				e.caret.scroll = true
 				e.scroller.Stop()
 			}
 		case key.EditEvent:
-			e.Caret.scroll = true
+			e.caret.scroll = true
 			e.scroller.Stop()
 			e.append(ke.Text)
+		// Complete a paste event, initiated by Shortcut-V in Editor.command().
 		case clipboard.Event:
-			e.Caret.scroll = true
+			e.caret.scroll = true
 			e.scroller.Stop()
 			e.append(ke.Text)
 		}
@@ -466,111 +374,9 @@ func (e *Editor) processKey(gtx layout.Context) {
 	}
 }
 
-func (e *Editor) movePosToStart(pos combinedPos) combinedPos {
-	e.makeValid(&pos)
-	layout := e.lines[pos.lineCol.Y].Layout
-	for i := pos.lineCol.X - 1; i >= 0; i-- {
-		_, s := e.editBuffer.runeBefore(pos.ofs)
-		pos.ofs -= s
-		pos.x -= layout.Advances[i]
-	}
-	pos.lineCol.X = 0
-	pos.xoff = -pos.x
-	return pos
-}
-
-func (e *Editor) moveEnd(selAct selectionAction) {
-	e.Caret.start = e.movePosToEnd(e.Caret.start)
-	e.updateSelection(selAct)
-}
-
-func (e *Editor) updateSelection(selAct selectionAction) {
-	if selAct == selectionClear {
-		e.ClearSelection()
-	}
-}
-
-func (e *Editor) movePosToEnd(pos combinedPos) combinedPos {
-	e.makeValid(&pos)
-	l := e.lines[pos.lineCol.Y]
-	// Only move past the end of the last line
-	end := 0
-	if pos.lineCol.Y < len(e.lines)-1 {
-		end = 1
-	}
-	layout := l.Layout
-	for i := pos.lineCol.X; i < len(layout.Advances)-end; i++ {
-		adv := layout.Advances[i]
-		_, s := e.editBuffer.runeAt(pos.ofs)
-		pos.ofs += s
-		pos.x += adv
-		pos.lineCol.X++
-	}
-	a := align(e.alignment, l.Width, e.viewSize.X)
-	pos.xoff = l.Width + a - pos.x
-	return pos
-}
-
-func (e *Editor) movePosToLine(pos combinedPos, x fixed.Int26_6, line int) combinedPos {
-	e.makeValid(&pos)
-	if line < 0 {
-		line = 0
-	}
-	if line >= len(e.lines) {
-		line = len(e.lines) - 1
-	}
-
-	prevDesc := e.lines[line].Descent
-	for pos.lineCol.Y < line {
-		pos = e.movePosToEnd(pos)
-		l := e.lines[pos.lineCol.Y]
-		_, s := e.editBuffer.runeAt(pos.ofs)
-		pos.ofs += s
-		pos.y += (prevDesc + l.Ascent).Ceil()
-		pos.lineCol.X = 0
-		prevDesc = l.Descent
-		pos.lineCol.Y++
-	}
-	for pos.lineCol.Y > line {
-		pos = e.movePosToStart(pos)
-		l := e.lines[pos.lineCol.Y]
-		_, s := e.editBuffer.runeBefore(pos.ofs)
-		pos.ofs -= s
-		pos.y -= (prevDesc + l.Ascent).Ceil()
-		prevDesc = l.Descent
-		pos.lineCol.Y--
-		l = e.lines[pos.lineCol.Y]
-		pos.lineCol.X = len(l.Layout.Advances) - 1
-	}
-
-	pos = e.movePosToStart(pos)
-	l := e.lines[line]
-	pos.x = align(e.alignment, l.Width, e.viewSize.X)
-	// Only move past the end of the last line
-	end := 0
-	if line < len(e.lines)-1 {
-		end = 1
-	}
-	// Move to rune closest to x.
-	for i := 0; i < len(l.Layout.Advances)-end; i++ {
-		adv := l.Layout.Advances[i]
-		if pos.x >= x {
-			break
-		}
-		if pos.x+adv-x >= x-pos.x {
-			break
-		}
-		pos.x += adv
-		_, s := e.editBuffer.runeAt(pos.ofs)
-		pos.ofs += s
-		pos.lineCol.X++
-	}
-	pos.xoff = x - pos.x
-	return pos
-}
-
 func (e *Editor) moveLines(distance int, selAct selectionAction) {
-	e.Caret.start = e.movePosToLine(e.Caret.start, e.Caret.start.x+e.Caret.start.xoff, e.Caret.start.lineCol.Y+distance)
+	e.caret.start = e.movePosToLine(e.caret.start, e.caret.start.x+e.caret.start.xoff,
+		e.caret.start.lineCol.Y+distance)
 	e.updateSelection(selAct)
 }
 
@@ -652,41 +458,11 @@ func (e *Editor) command(gtx layout.Context, k key.Event) bool {
 		if k.Modifiers != key.ModShortcut {
 			return false
 		}
-		e.Caret.end, e.Caret.start = e.offsetToScreenPos2(0, e.Len())
+		e.caret.end, e.caret.start = e.offsetToScreenPos2(0, e.Len())
 	default:
 		return false
 	}
 	return true
-}
-
-// offsetToScreenPos2 is a utility function to shortcut the common case of
-// wanting the positions of exactly two offsets.
-func (e *Editor) offsetToScreenPos2(o1, o2 int) (combinedPos, combinedPos) {
-	cp1, iter := e.offsetToScreenPos(o1)
-	return cp1, iter(o2)
-}
-
-// SelectionLen returns the length of the selection, in bytes; it is
-// equivalent to len(e.SelectedText()).
-func (e *Editor) SelectionLen() int {
-	return abs(e.Caret.start.ofs - e.Caret.end.ofs)
-}
-
-// SelectedText returns the currently selected text (if any) from the editor.
-func (e *Editor) SelectedText() string {
-	l := e.SelectionLen()
-	if l == 0 {
-		return ""
-	}
-	buf := make([]byte, l)
-	e.editBuffer.Seek(int64(min(e.Caret.start.ofs, e.Caret.end.ofs)), io.SeekStart)
-	_, err := e.editBuffer.Read(buf)
-	if err != nil {
-		// The only error that rr.Read can return is EOF, which just means no
-		// selection, but we've already made sure that shouldn't happen.
-		panic("impossible error because end is before e.rr.Len()")
-	}
-	return string(buf)
 }
 
 // Focus requests the input focus for the _editor.
@@ -734,43 +510,11 @@ func (e *Editor) Layout(gtx layout.Context, sh text.Shaper, font text.Font, size
 	return e.layout(gtx)
 }
 
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func abs(n int) int {
-	if n < 0 {
-		return -n
-	}
-	return n
-}
-
-func sign(n int) int {
-	switch {
-	case n < 0:
-		return -1
-	case n > 0:
-		return 1
-	default:
-		return 0
-	}
-}
-
 func (e *Editor) layout(gtx layout.Context) layout.Dimensions {
-	// Adjust scrolling for new viewport and l.
+	// Adjust scrolling for new viewport and layout.
 	e.scrollRel(0, 0)
-	if e.Caret.scroll {
-		e.Caret.scroll = false
+	if e.caret.scroll {
+		e.caret.scroll = false
 		e.scrollToCaret()
 	}
 	off := image.Point{
@@ -779,7 +523,10 @@ func (e *Editor) layout(gtx layout.Context) layout.Dimensions {
 	}
 	cl := textPadding(e.lines)
 	cl.Max = cl.Max.Add(e.viewSize)
-	it := lineIterator{
+	startSel, endSel := sortPoints(e.caret.start.lineCol, e.caret.end.lineCol)
+	it := segmentIterator{
+		startSel:  startSel,
+		endSel:    endSel,
 		Lines:     e.lines,
 		Clip:      cl,
 		Alignment: e.alignment,
@@ -788,12 +535,12 @@ func (e *Editor) layout(gtx layout.Context) layout.Dimensions {
 	}
 	e.shapes = e.shapes[:0]
 	for {
-		lo, off, ok := it.Next()
+		lo, off, selected, yOffs, size, ok := it.Next()
 		if !ok {
 			break
 		}
 		path := e.shaper.Shape(e.font, e.textSize, lo)
-		e.shapes = append(e.shapes, line{off, path})
+		e.shapes = append(e.shapes, line{off, path, selected, yOffs, size})
 	}
 	key.InputOp{Tag: &e.eventKey}.Add(gtx.Ops)
 	if e.requestFocus {
@@ -801,6 +548,7 @@ func (e *Editor) layout(gtx layout.Context) layout.Dimensions {
 		key.SoftKeyboardOp{Show: true}.Add(gtx.Ops)
 	}
 	e.requestFocus = false
+	// todo: this should be scaled
 	pointerPadding := gtx.Px(unit.Dp(4))
 	r := image.Rectangle{Max: e.viewSize}
 	r.Min.X -= pointerPadding
@@ -820,7 +568,8 @@ func (e *Editor) layout(gtx layout.Context) layout.Dimensions {
 	e.scroller.Add(gtx.Ops, scrollRange)
 
 	e.clicker.Add(gtx.Ops)
-	e.Caret.on = false
+	e.dragger.Add(gtx.Ops)
+	e.caret.on = false
 	if e.focused {
 		now := gtx.Now
 		dt := now.Sub(e.blinkStart)
@@ -831,38 +580,58 @@ func (e *Editor) layout(gtx layout.Context) layout.Dimensions {
 			redraw := op.InvalidateOp{At: nextBlink}
 			redraw.Add(gtx.Ops)
 		}
-		e.Caret.on = e.focused && (!blinking || dt%timePerBlink < timePerBlink/2)
+		e.caret.on = e.focused && (!blinking || dt%timePerBlink < timePerBlink/2)
 	}
 
 	return layout.Dimensions{Size: e.viewSize, Baseline: e.dims.Baseline}
 }
 
+// PaintSelection paints the contrasting background for selected text.
+func (e *Editor) PaintSelection(gtx layout.Context) {
+	cl := textPadding(e.lines)
+	cl.Max = cl.Max.Add(e.viewSize)
+	clip.Rect(cl).Add(gtx.Ops)
+	for _, shape := range e.shapes {
+		if !shape.selected {
+			continue
+		}
+		stack := op.Save(gtx.Ops)
+		offset := shape.offset
+		offset.Y += shape.selectionYOffs
+		op.Offset(layout.FPt(offset)).Add(gtx.Ops)
+		clip.Rect(image.Rectangle{Max: shape.selectionSize}).Add(gtx.Ops)
+		paint.PaintOp{}.Add(gtx.Ops)
+		stack.Load()
+	}
+}
+
 func (e *Editor) PaintText(gtx layout.Context) {
 	cl := textPadding(e.lines)
 	cl.Max = cl.Max.Add(e.viewSize)
+	clip.Rect(cl).Add(gtx.Ops)
 	for _, shape := range e.shapes {
 		stack := op.Save(gtx.Ops)
 		op.Offset(layout.FPt(shape.offset)).Add(gtx.Ops)
 		shape.clip.Add(gtx.Ops)
-		clip.Rect(cl.Sub(shape.offset)).Add(gtx.Ops)
 		paint.PaintOp{}.Add(gtx.Ops)
 		stack.Load()
 	}
 }
 
 func (e *Editor) PaintCaret(gtx layout.Context) {
-	if !e.Caret.on {
+	if !e.caret.on {
 		return
 	}
 	e.makeValid()
+	// todo: this should also be scaled and like blink/sec, configured in theme
 	carWidth := fixed.I(gtx.Px(unit.Dp(1)))
-	carX := e.Caret.start.x
-	carY := e.Caret.start.y
+	carX := e.caret.start.x
+	carY := e.caret.start.y
 
 	defer op.Save(gtx.Ops).Load()
 	carX -= carWidth / 2
-	carAsc, carDesc := -e.lines[e.Caret.start.lineCol.Y].Bounds.Min.Y,
-		e.lines[e.Caret.start.lineCol.Y].Bounds.Max.Y
+	carAsc, carDesc := -e.lines[e.caret.start.lineCol.Y].Bounds.Min.Y,
+		e.lines[e.caret.start.lineCol.Y].Bounds.Max.Y
 	carRect := image.Rectangle{
 		Min: image.Point{X: carX.Ceil(), Y: carY - carAsc.Ceil()},
 		Max: image.Point{X: carX.Ceil() + carWidth.Ceil(), Y: carY + carDesc.Ceil()},
@@ -903,8 +672,8 @@ func (e *Editor) Text() string {
 // SetText replaces the contents of the editor, clearing any selection first.
 func (e *Editor) SetText(s string) *Editor {
 	e.editBuffer = editBuffer{}
-	e.Caret.start = combinedPos{}
-	e.Caret.end = combinedPos{}
+	e.caret.start = combinedPos{}
+	e.caret.end = combinedPos{}
 	e.prepend(s)
 	return e
 }
@@ -962,8 +731,8 @@ func (e *Editor) moveCoord(pos image.Point) {
 		carLine++
 	}
 	x := fixed.I(pos.X + e.scrollOff.X)
-	e.Caret.start = e.movePosToLine(e.Caret.start, x, carLine)
-	e.Caret.start.xoff = 0
+	e.caret.start = e.movePosToLine(e.caret.start, x, carLine)
+	e.caret.start.xoff = 0
 }
 
 func (e *Editor) layoutText(s text.Shaper) ([]text.Line, layout.Dimensions) {
@@ -996,42 +765,72 @@ func (e *Editor) layoutText(s text.Shaper) ([]text.Line, layout.Dimensions) {
 // CaretPos returns the line & column numbers of the caret.
 func (e *Editor) CaretPos() (line, col int) {
 	e.makeValid()
-	return e.Caret.start.lineCol.Y, e.Caret.start.lineCol.X
+	return e.caret.start.lineCol.Y, e.caret.start.lineCol.X
 }
 
 // CaretCoords returns the coordinates of the caret, relative to the
 // editor itself.
 func (e *Editor) CaretCoords() f32.Point {
 	e.makeValid()
-	return f32.Pt(float32(e.Caret.start.x)/64, float32(e.Caret.start.y))
+	return f32.Pt(float32(e.caret.start.x)/64, float32(e.caret.start.y))
 }
 
-func (e *Editor) layoutCaret() (line, col int, x fixed.Int26_6, y int) {
-	var idx int
-	var prevDesc fixed.Int26_6
-loop:
-	for {
-		x = 0
-		col = 0
-		l := e.lines[line]
-		y += (prevDesc + l.Ascent).Ceil()
-		prevDesc = l.Descent
-		for _, adv := range l.Layout.Advances {
-			if idx == e.editBuffer.caret {
-				break loop
+// offsetToScreenPos2 is a utility function to shortcut the common case of
+// wanting the positions of exactly two offsets.
+func (e *Editor) offsetToScreenPos2(o1, o2 int) (combinedPos, combinedPos) {
+	cp1, iter := e.offsetToScreenPos(o1)
+	return cp1, iter(o2)
+}
+
+// offsetToScreenPos takes an offset into the editor text (e.g.
+// e.caret.end.ofs) and returns a combinedPos that corresponds to its current
+// screen position, as well as an iterator that lets you get the combinedPos
+// of a later offset. The offsets given to offsetToScreenPos and to the
+// returned iterator must be sorted, lowest first, and they must be valid (0
+// <= offset <= e.Len()).
+//
+// This function is written this way to take advantage of previous work done
+// for offsets after the first. Otherwise you have to start from the top each
+// time.
+func (e *Editor) offsetToScreenPos(offset int) (combinedPos, func(int) combinedPos) {
+	var col, line, idx int
+	var x fixed.Int26_6
+
+	l := e.lines[line]
+	y := l.Ascent.Ceil()
+	prevDesc := l.Descent
+
+	iter := func(offset int) combinedPos {
+	LOOP:
+		for {
+			for ; col < len(l.Layout.Advances); col++ {
+				if idx >= offset {
+					break LOOP
+				}
+
+				x += l.Layout.Advances[col]
+				_, s := e.editBuffer.runeAt(idx)
+				idx += s
 			}
-			x += adv
-			_, s := e.editBuffer.runeAt(idx)
-			idx += s
-			col++
+			if lastLine := line == len(e.lines)-1; lastLine || idx > offset {
+				break LOOP
+			}
+
+			line++
+			x = 0
+			col = 0
+			l = e.lines[line]
+			y += (prevDesc + l.Ascent).Ceil()
+			prevDesc = l.Descent
 		}
-		if line == len(e.lines)-1 || idx > e.editBuffer.caret {
-			break
+		return combinedPos{
+			lineCol: screenPos{Y: line, X: col},
+			x:       x + align(e.alignment, e.lines[line].Width, e.viewSize.X),
+			y:       y,
+			ofs:     offset,
 		}
-		line++
 	}
-	x += align(e.alignment, e.lines[line].Width, e.viewSize.X)
-	return
+	return iter(offset), iter
 }
 
 func (e *Editor) invalidate() {
@@ -1047,13 +846,13 @@ func (e *Editor) Delete(runes int) {
 		return
 	}
 
-	if l := e.Caret.end.ofs - e.Caret.start.ofs; l != 0 {
-		e.Caret.start.ofs = e.editBuffer.deleteRunes(e.Caret.start.ofs, l)
+	if l := e.caret.end.ofs - e.caret.start.ofs; l != 0 {
+		e.caret.start.ofs = e.editBuffer.deleteRunes(e.caret.start.ofs, l)
 		runes -= sign(runes)
 	}
 
-	e.Caret.start.ofs = e.editBuffer.deleteRunes(e.Caret.start.ofs, runes)
-	e.Caret.start.xoff = 0
+	e.caret.start.ofs = e.editBuffer.deleteRunes(e.caret.start.ofs, runes)
+	e.caret.start.xoff = 0
 	e.ClearSelection()
 	e.invalidate()
 }
@@ -1062,15 +861,13 @@ func (e *Editor) Delete(runes int) {
 // selection, Insert overwrites it.
 func (e *Editor) Insert(s string) {
 	e.append(s)
-	e.Caret.scroll = true
+	e.caret.scroll = true
 }
 
 func (e *Editor) append(s string) {
-	if e.singleLine {
-		s = strings.ReplaceAll(s, "\n", "")
-	}
 	e.prepend(s)
-	e.editBuffer.caret += len(s)
+	e.caret.start.ofs += len(s)
+	e.caret.end.ofs = e.caret.start.ofs
 }
 
 // prepend inserts s after the cursor; the caret does not change. If there is
@@ -1080,16 +877,16 @@ func (e *Editor) prepend(s string) {
 	if e.singleLine {
 		s = strings.ReplaceAll(s, "\n", " ")
 	}
-	e.Caret.start.ofs = e.editBuffer.deleteRunes(e.Caret.start.ofs,
-		e.Caret.end.ofs-e.Caret.start.ofs) // Delete any selection first.
-	e.editBuffer.prepend(e.Caret.start.ofs, s)
-	e.Caret.start.xoff = 0
+	e.caret.start.ofs = e.editBuffer.deleteRunes(e.caret.start.ofs,
+		e.caret.end.ofs-e.caret.start.ofs) // Delete any selection first.
+	e.editBuffer.prepend(e.caret.start.ofs, s)
+	e.caret.start.xoff = 0
 	e.invalidate()
 }
 
 func (e *Editor) movePages(pages int, selAct selectionAction) {
 	e.makeValid()
-	y := e.Caret.start.y + pages*e.viewSize.Y
+	y := e.caret.start.y + pages*e.viewSize.Y
 	var (
 		prevDesc fixed.Int26_6
 		carLine2 int
@@ -1108,106 +905,66 @@ func (e *Editor) movePages(pages int, selAct selectionAction) {
 		y2 += h
 		carLine2++
 	}
-	e.Caret.start = e.movePosToLine(e.Caret.start, e.Caret.start.x+e.Caret.start.xoff, carLine2)
+	e.caret.start = e.movePosToLine(e.caret.start, e.caret.start.x+e.caret.start.xoff, carLine2)
 	e.updateSelection(selAct)
 }
 
-// func (e *Editor) moveToLine(x fixed.Int26_6, line int) {
-// 	e.makeValid()
-// 	if line < 0 {
-// 		line = 0
-// 	}
-// 	if line >= len(e.lines) {
-// 		line = len(e.lines) - 1
-// 	}
-//
-// 	prevDesc := e.lines[line].Descent
-// 	for e.Caret.Line < line {
-// 		e.moveEnd()
-// 		l := e.lines[e.Caret.Line]
-// 		_, s := e.editBuffer.runeAt(e.editBuffer.caret)
-// 		e.editBuffer.caret += s
-// 		e.Caret.y += (prevDesc + l.Ascent).Ceil()
-// 		e.Caret.Col = 0
-// 		prevDesc = l.Descent
-// 		e.Caret.Line++
-// 	}
-// 	for e.Caret.Line > line {
-// 		e.moveStart()
-// 		l := e.lines[e.Caret.Line]
-// 		_, s := e.editBuffer.runeBefore(e.editBuffer.caret)
-// 		e.editBuffer.caret -= s
-// 		e.Caret.y -= (prevDesc + l.Ascent).Ceil()
-// 		prevDesc = l.Descent
-// 		e.Caret.Line--
-// 		l = e.lines[e.Caret.Line]
-// 		e.Caret.Col = len(l.Layout.Advances) - 1
-// 	}
-//
-// 	e.moveStart()
-// 	l := e.lines[line]
-// 	e.Caret.x = align(e.alignment, l.Width, e.viewSize.X)
-// 	// Only move past the end of the last line
-// 	end := 0
-// 	if line < len(e.lines)-1 {
-// 		end = 1
-// 	}
-// 	// Move to rune closest to x.
-// 	for i := 0; i < len(l.Layout.Advances)-end; i++ {
-// 		adv := l.Layout.Advances[i]
-// 		if e.Caret.x >= x {
-// 			break
-// 		}
-// 		if e.Caret.x+adv-x >= x-e.Caret.x {
-// 			break
-// 		}
-// 		e.Caret.x += adv
-// 		_, s := e.editBuffer.runeAt(e.editBuffer.caret)
-// 		e.editBuffer.caret += s
-// 		e.Caret.Col++
-// 	}
-// 	e.Caret.xoff = x - e.Caret.x
-// }
-//
-// // Move the caret: positive distance moves forward, negative distance moves
-// // backward.
-// func (e *Editor) Move(distance int) {
-// 	e.makeValid()
-// 	for ; distance < 0 && e.editBuffer.caret > 0; distance++ {
-// 		if e.Caret.Col == 0 {
-// 			// Move to end of previous line.
-// 			e.moveToLine(fixed.I(e.maxWidth), e.Caret.Line-1)
-// 			continue
-// 		}
-// 		l := e.lines[e.Caret.Line].Layout
-// 		_, s := e.editBuffer.runeBefore(e.editBuffer.caret)
-// 		e.editBuffer.caret -= s
-// 		e.Caret.Col--
-// 		e.Caret.x -= l.Advances[e.Caret.Col]
-// 	}
-// 	for ; distance > 0 && e.editBuffer.caret < e.editBuffer.len(); distance-- {
-// 		l := e.lines[e.Caret.Line].Layout
-// 		// Only move past the end of the last line
-// 		end := 0
-// 		if e.Caret.Line < len(e.lines)-1 {
-// 			end = 1
-// 		}
-// 		if e.Caret.Col >= len(l.Advances)-end {
-// 			// Move to start of next line.
-// 			e.moveToLine(0, e.Caret.Line+1)
-// 			continue
-// 		}
-// 		e.Caret.x += l.Advances[e.Caret.Col]
-// 		_, s := e.editBuffer.runeAt(e.editBuffer.caret)
-// 		e.editBuffer.caret += s
-// 		e.Caret.Col++
-// 	}
-// 	e.Caret.xoff = 0
-// }
+func (e *Editor) movePosToLine(pos combinedPos, x fixed.Int26_6, line int) combinedPos {
+	e.makeValid(&pos)
+	if line < 0 {
+		line = 0
+	}
+	if line >= len(e.lines) {
+		line = len(e.lines) - 1
+	}
 
-func (e *Editor) moveStart(selAct selectionAction) {
-	e.Caret.start = e.movePosToStart(e.Caret.start)
-	e.updateSelection(selAct)
+	prevDesc := e.lines[line].Descent
+	for pos.lineCol.Y < line {
+		pos = e.movePosToEnd(pos)
+		l := e.lines[pos.lineCol.Y]
+		_, s := e.editBuffer.runeAt(pos.ofs)
+		pos.ofs += s
+		pos.y += (prevDesc + l.Ascent).Ceil()
+		pos.lineCol.X = 0
+		prevDesc = l.Descent
+		pos.lineCol.Y++
+	}
+	for pos.lineCol.Y > line {
+		pos = e.movePosToStart(pos)
+		l := e.lines[pos.lineCol.Y]
+		_, s := e.editBuffer.runeBefore(pos.ofs)
+		pos.ofs -= s
+		pos.y -= (prevDesc + l.Ascent).Ceil()
+		prevDesc = l.Descent
+		pos.lineCol.Y--
+		l = e.lines[pos.lineCol.Y]
+		pos.lineCol.X = len(l.Layout.Advances) - 1
+	}
+
+	pos = e.movePosToStart(pos)
+	l := e.lines[line]
+	pos.x = align(e.alignment, l.Width, e.viewSize.X)
+	// Only move past the end of the last line
+	end := 0
+	if line < len(e.lines)-1 {
+		end = 1
+	}
+	// Move to rune closest to x.
+	for i := 0; i < len(l.Layout.Advances)-end; i++ {
+		adv := l.Layout.Advances[i]
+		if pos.x >= x {
+			break
+		}
+		if pos.x+adv-x >= x-pos.x {
+			break
+		}
+		pos.x += adv
+		_, s := e.editBuffer.runeAt(pos.ofs)
+		pos.ofs += s
+		pos.lineCol.X++
+	}
+	pos.xoff = x - pos.x
+	return pos
 }
 
 // MoveCaret moves the caret (aka selection start) and the selection end
@@ -1215,18 +972,19 @@ func (e *Editor) moveStart(selAct selectionAction) {
 // negative distances moves backward. Distances are in runes.
 func (e *Editor) MoveCaret(startDelta, endDelta int) {
 	e.makeValid()
-	keepSame := e.Caret.start.ofs == e.Caret.end.ofs && startDelta == endDelta
-	e.Caret.start = e.movePos(e.Caret.start, startDelta)
-	e.Caret.start.xoff = 0
+	keepSame := e.caret.start.ofs == e.caret.end.ofs && startDelta == endDelta
+	e.caret.start = e.movePos(e.caret.start, startDelta)
+	e.caret.start.xoff = 0
 	// If they were in the same place, and we're moving them the same distance,
 	// just assign the new position, instead of recalculating it.
 	if keepSame {
-		e.Caret.end = e.Caret.start
+		e.caret.end = e.caret.start
 	} else {
-		e.Caret.end = e.movePos(e.Caret.end, endDelta)
-		e.Caret.end.xoff = 0
+		e.caret.end = e.movePos(e.caret.end, endDelta)
+		e.caret.end.xoff = 0
 	}
 }
+
 func (e *Editor) movePos(pos combinedPos, distance int) combinedPos {
 	for ; distance < 0 && pos.ofs > 0; distance++ {
 		if pos.lineCol.X == 0 {
@@ -1260,6 +1018,50 @@ func (e *Editor) movePos(pos combinedPos, distance int) combinedPos {
 	return pos
 }
 
+func (e *Editor) moveStart(selAct selectionAction) {
+	e.caret.start = e.movePosToStart(e.caret.start)
+	e.updateSelection(selAct)
+}
+
+func (e *Editor) movePosToStart(pos combinedPos) combinedPos {
+	e.makeValid(&pos)
+	layout := e.lines[pos.lineCol.Y].Layout
+	for i := pos.lineCol.X - 1; i >= 0; i-- {
+		_, s := e.editBuffer.runeBefore(pos.ofs)
+		pos.ofs -= s
+		pos.x -= layout.Advances[i]
+	}
+	pos.lineCol.X = 0
+	pos.xoff = -pos.x
+	return pos
+}
+
+func (e *Editor) moveEnd(selAct selectionAction) {
+	e.caret.start = e.movePosToEnd(e.caret.start)
+	e.updateSelection(selAct)
+}
+
+func (e *Editor) movePosToEnd(pos combinedPos) combinedPos {
+	e.makeValid(&pos)
+	l := e.lines[pos.lineCol.Y]
+	// Only move past the end of the last line
+	end := 0
+	if pos.lineCol.Y < len(e.lines)-1 {
+		end = 1
+	}
+	layout := l.Layout
+	for i := pos.lineCol.X; i < len(layout.Advances)-end; i++ {
+		adv := layout.Advances[i]
+		_, s := e.editBuffer.runeAt(pos.ofs)
+		pos.ofs += s
+		pos.x += adv
+		pos.lineCol.X++
+	}
+	a := align(e.alignment, l.Width, e.viewSize.X)
+	pos.xoff = l.Width + a - pos.x
+	return pos
+}
+
 // moveWord moves the caret to the next word in the specified direction.
 // Positive is forward, negative is backward.
 // Absolute values greater than one will skip that many words.
@@ -1273,14 +1075,14 @@ func (e *Editor) moveWord(distance int, selAct selectionAction) {
 	}
 	// atEnd if caret is at either side of the buffer.
 	atEnd := func() bool {
-		return e.Caret.start.ofs == 0 || e.Caret.start.ofs == e.editBuffer.len()
+		return e.caret.start.ofs == 0 || e.caret.start.ofs == e.editBuffer.len()
 	}
 	// next returns the appropriate rune given the direction.
 	next := func() (r rune) {
 		if direction < 0 {
-			r, _ = e.editBuffer.runeBefore(e.Caret.start.ofs)
+			r, _ = e.editBuffer.runeBefore(e.caret.start.ofs)
 		} else {
-			r, _ = e.editBuffer.runeAt(e.Caret.start.ofs)
+			r, _ = e.editBuffer.runeAt(e.caret.start.ofs)
 		}
 		return r
 	}
@@ -1303,7 +1105,20 @@ func (e *Editor) moveWord(distance int, selAct selectionAction) {
 //
 // Absolute values greater than one will delete that many words.
 func (e *Editor) deleteWord(distance int) {
+	if distance == 0 {
+		return
+	}
+
 	e.makeValid()
+
+	if e.caret.start.ofs != e.caret.end.ofs {
+		e.Delete(1)
+		distance -= sign(distance)
+	}
+	if distance == 0 {
+		return
+	}
+
 	// split the distance information into constituent parts to be
 	// used independently.
 	words, direction := distance, 1
@@ -1312,12 +1127,12 @@ func (e *Editor) deleteWord(distance int) {
 	}
 	// atEnd if offset is at or beyond either side of the buffer.
 	atEnd := func(offset int) bool {
-		idx := e.editBuffer.caret + offset*direction
+		idx := e.caret.start.ofs + offset*direction
 		return idx <= 0 || idx >= e.editBuffer.len()
 	}
 	// next returns the appropriate rune given the direction and offset.
 	next := func(offset int) (r rune) {
-		idx := e.editBuffer.caret + offset*direction
+		idx := e.caret.start.ofs + offset*direction
 		if idx < 0 {
 			idx = 0
 		} else if idx > e.editBuffer.len() {
@@ -1347,22 +1162,22 @@ func (e *Editor) deleteWord(distance int) {
 
 func (e *Editor) scrollToCaret() {
 	e.makeValid()
-	l := e.lines[e.Caret.start.lineCol.Y]
+	l := e.lines[e.caret.start.lineCol.Y]
 	if e.singleLine {
 		var dist int
-		if d := e.Caret.start.x.Floor() - e.scrollOff.X; d < 0 {
+		if d := e.caret.start.x.Floor() - e.scrollOff.X; d < 0 {
 			dist = d
-		} else if d := e.Caret.start.x.Ceil() - (e.scrollOff.X + e.viewSize.X); d > 0 {
+		} else if d = e.caret.start.x.Ceil() - (e.scrollOff.X + e.viewSize.X); d > 0 {
 			dist = d
 		}
 		e.scrollRel(dist, 0)
 	} else {
-		miny := e.Caret.start.y - l.Ascent.Ceil()
-		maxy := e.Caret.start.y + l.Descent.Ceil()
+		miny := e.caret.start.y - l.Ascent.Ceil()
+		maxy := e.caret.start.y + l.Descent.Ceil()
 		var dist int
 		if d := miny - e.scrollOff.Y; d < 0 {
 			dist = d
-		} else if d := maxy - (e.scrollOff.Y + e.viewSize.Y); d > 0 {
+		} else if d = maxy - (e.scrollOff.Y + e.viewSize.Y); d > 0 {
 			dist = d
 		}
 		e.scrollRel(0, dist)
@@ -1373,6 +1188,116 @@ func (e *Editor) scrollToCaret() {
 func (e *Editor) NumLines() int {
 	e.makeValid()
 	return len(e.lines)
+}
+
+// SelectionLen returns the length of the selection, in bytes; it is
+// equivalent to len(e.SelectedText()).
+func (e *Editor) SelectionLen() int {
+	return abs(e.caret.start.ofs - e.caret.end.ofs)
+}
+
+// Selection returns the start and end of the selection, as offsets into the
+// editor text. start can be > end.
+func (e *Editor) Selection() (start, end int) {
+	return e.caret.start.ofs, e.caret.end.ofs
+}
+
+// SetCaret moves the caret to start, and sets the selection end to end. start
+// and end are in bytes, and represent offsets into the editor text. start and
+// end must be at a rune boundary.
+func (e *Editor) SetCaret(start, end int) {
+	e.makeValid()
+	// Constrain start and end to [0, e.Len()].
+	l := e.Len()
+	start = max(min(start, l), 0)
+	end = max(min(end, l), 0)
+	e.caret.start.ofs, e.caret.end.ofs = start, end
+	e.makeValidCaret()
+	e.caret.scroll = true
+	e.scroller.Stop()
+}
+
+func (e *Editor) makeValidCaret(positions ...*combinedPos) {
+	// Jump through some hoops to order the offsets given to offsetToScreenPos,
+	// but still be able to update them correctly with the results thereof.
+	positions = append(positions, &e.caret.start, &e.caret.end)
+	sort.Slice(positions, func(i, j int) bool {
+		return positions[i].ofs < positions[j].ofs
+	})
+	var iter func(offset int) combinedPos
+	*positions[0], iter = e.offsetToScreenPos(positions[0].ofs)
+	for _, cp := range positions[1:] {
+		*cp = iter(cp.ofs)
+	}
+}
+
+// SelectedText returns the currently selected text (if any) from the editor.
+func (e *Editor) SelectedText() string {
+	l := e.SelectionLen()
+	if l == 0 {
+		return ""
+	}
+	buf := make([]byte, l)
+	e.editBuffer.Seek(int64(min(e.caret.start.ofs, e.caret.end.ofs)), io.SeekStart)
+	_, err := e.editBuffer.Read(buf)
+	if err != nil {
+		// The only error that rr.Read can return is EOF, which just means no
+		// selection, but we've already made sure that shouldn't happen.
+		panic("impossible error because end is before e.rr.Len()")
+	}
+	return string(buf)
+}
+
+func (e *Editor) updateSelection(selAct selectionAction) {
+	if selAct == selectionClear {
+		e.ClearSelection()
+	}
+}
+
+// ClearSelection clears the selection, by setting the selection end equal to
+// the selection start.
+func (e *Editor) ClearSelection() {
+	e.caret.end = e.caret.start
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func abs(n int) int {
+	if n < 0 {
+		return -n
+	}
+	return n
+}
+
+func sign(n int) int {
+	switch {
+	case n < 0:
+		return -1
+	case n > 0:
+		return 1
+	default:
+		return 0
+	}
+}
+
+// sortPoints returns a and b sorted such that a2 <= b2.
+func sortPoints(a, b screenPos) (a2, b2 screenPos) {
+	if b.Less(a) {
+		return b, a
+	}
+	return a, b
 }
 
 func nullLayout(r io.Reader) ([]text.Line, error) {
@@ -1401,3 +1326,160 @@ func nullLayout(r io.Reader) ([]text.Line, error) {
 
 func (s ChangeEvent) isEditorEvent() {}
 func (s SubmitEvent) isEditorEvent() {}
+func (s SelectEvent) isEditorEvent() {}
+
+// func (e *Editor) moveToLine(x fixed.Int26_6, line int) {
+// 	e.makeValid()
+// 	if line < 0 {
+// 		line = 0
+// 	}
+// 	if line >= len(e.lines) {
+// 		line = len(e.lines) - 1
+// 	}
+//
+// 	prevDesc := e.lines[line].Descent
+// 	for e.caret.Line < line {
+// 		e.moveEnd()
+// 		l := e.lines[e.caret.Line]
+// 		_, s := e.editBuffer.runeAt(e.editBuffer.caret)
+// 		e.editBuffer.caret += s
+// 		e.caret.y += (prevDesc + l.Ascent).Ceil()
+// 		e.caret.Col = 0
+// 		prevDesc = l.Descent
+// 		e.caret.Line++
+// 	}
+// 	for e.caret.Line > line {
+// 		e.moveStart()
+// 		l := e.lines[e.caret.Line]
+// 		_, s := e.editBuffer.runeBefore(e.editBuffer.caret)
+// 		e.editBuffer.caret -= s
+// 		e.caret.y -= (prevDesc + l.Ascent).Ceil()
+// 		prevDesc = l.Descent
+// 		e.caret.Line--
+// 		l = e.lines[e.caret.Line]
+// 		e.caret.Col = len(l.Layout.Advances) - 1
+// 	}
+//
+// 	e.moveStart()
+// 	l := e.lines[line]
+// 	e.caret.x = align(e.alignment, l.Width, e.viewSize.X)
+// 	// Only move past the end of the last line
+// 	end := 0
+// 	if line < len(e.lines)-1 {
+// 		end = 1
+// 	}
+// 	// Move to rune closest to x.
+// 	for i := 0; i < len(l.Layout.Advances)-end; i++ {
+// 		adv := l.Layout.Advances[i]
+// 		if e.caret.x >= x {
+// 			break
+// 		}
+// 		if e.caret.x+adv-x >= x-e.caret.x {
+// 			break
+// 		}
+// 		e.caret.x += adv
+// 		_, s := e.editBuffer.runeAt(e.editBuffer.caret)
+// 		e.editBuffer.caret += s
+// 		e.caret.Col++
+// 	}
+// 	e.caret.xoff = x - e.caret.x
+// }
+//
+// // Move the caret: positive distance moves forward, negative distance moves
+// // backward.
+// func (e *Editor) Move(distance int) {
+// 	e.makeValid()
+// 	for ; distance < 0 && e.editBuffer.caret > 0; distance++ {
+// 		if e.caret.Col == 0 {
+// 			// Move to end of previous line.
+// 			e.moveToLine(fixed.I(e.maxWidth), e.caret.Line-1)
+// 			continue
+// 		}
+// 		l := e.lines[e.caret.Line].Layout
+// 		_, s := e.editBuffer.runeBefore(e.editBuffer.caret)
+// 		e.editBuffer.caret -= s
+// 		e.caret.Col--
+// 		e.caret.x -= l.Advances[e.caret.Col]
+// 	}
+// 	for ; distance > 0 && e.editBuffer.caret < e.editBuffer.len(); distance-- {
+// 		l := e.lines[e.caret.Line].Layout
+// 		// Only move past the end of the last line
+// 		end := 0
+// 		if e.caret.Line < len(e.lines)-1 {
+// 			end = 1
+// 		}
+// 		if e.caret.Col >= len(l.Advances)-end {
+// 			// Move to start of next line.
+// 			e.moveToLine(0, e.caret.Line+1)
+// 			continue
+// 		}
+// 		e.caret.x += l.Advances[e.caret.Col]
+// 		_, s := e.editBuffer.runeAt(e.editBuffer.caret)
+// 		e.editBuffer.caret += s
+// 		e.caret.Col++
+// 	}
+// 	e.caret.xoff = 0
+// }
+
+func (e *Editor) layoutCaret() (line, col int, x fixed.Int26_6, y int) {
+	var idx int
+	var prevDesc fixed.Int26_6
+loop:
+	for {
+		x = 0
+		col = 0
+		l := e.lines[line]
+		y += (prevDesc + l.Ascent).Ceil()
+		prevDesc = l.Descent
+		for _, adv := range l.Layout.Advances {
+			if idx == e.editBuffer.caret {
+				break loop
+			}
+			x += adv
+			_, s := e.editBuffer.runeAt(idx)
+			idx += s
+			col++
+		}
+		if line == len(e.lines)-1 || idx > e.editBuffer.caret {
+			break
+		}
+		line++
+	}
+	x += align(e.alignment, e.lines[line].Width, e.viewSize.X)
+	return
+}
+
+func (e *Editor) SingleLine() *Editor {
+	e.singleLine = true
+	return e
+}
+
+func (e *Editor) Submit(submit bool) *Editor {
+	e.submit = submit
+	return e
+}
+
+func (e *Editor) Mask(mask rune) *Editor {
+	e.mask = mask
+	return e
+}
+
+func (e *Editor) SetSubmit(submitFn func(txt string)) *Editor {
+	e.submitHook = submitFn
+	return e
+}
+
+func (e *Editor) SetChange(changeFn func(txt string)) *Editor {
+	e.changeHook = changeFn
+	return e
+}
+
+func (e *Editor) SetFocus(focusFn func(is bool)) *Editor {
+	e.focusHook = focusFn
+	return e
+}
+
+func (e *Editor) Alignment(alignment text.Alignment) *Editor {
+	e.alignment = alignment
+	return e
+}
