@@ -56,19 +56,6 @@ func (s *State) rootWidget(gtx l.Context) l.Dimensions {
 															*s.showText = cs
 															I.Ln("clipboard contents:", cs)
 														}
-														// // clipboard.ReadOp{Tag: &s.evKey}.Add(gtx.Ops)
-														// // I.Ln(runtime.GOOS)
-														// // switch runtime.GOOS {
-														// // case "ios", "android":
-														// s.Window.ReadClipboard()
-														// // I.S(s.Window.Window)
-														// I.S(*s.showText, s.Window.ClipboardContent)
-														// *s.showText = s.Window.ClipboardContent
-														// // default:
-														// // 	txt := clipboard.Get()
-														// // 	*s.showText = txt
-														// // }
-														// I.Ln(*s.showText)
 													}),
 											).CornerRadius(0.25).Corners(^0).
 												Embed(
@@ -84,7 +71,6 @@ func (s *State) rootWidget(gtx l.Context) l.Dimensions {
 									).Fn,
 								).Fn,
 							).Fn,
-
 						).
 						Flexed(0.75,
 							s.Inset(0.5,

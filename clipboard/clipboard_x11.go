@@ -1,4 +1,4 @@
-// +build linux,!android,!ios,!nox11 freebsd openbsd
+// +build linux freebsd openbsd
 
 package clipboard
 
@@ -24,21 +24,35 @@ var clipboardAtom, primaryAtom, textAtom, targetsAtom, atomAtom xproto.Atom
 var targetAtoms []xproto.Atom
 var clipboardAtomCache = map[xproto.Atom]string{}
 
+var RunningX bool
+
 // Start up the clipboard watcher
 func Start() {
+	// first, check if X is running as only X has the Primary buffer
+	env := os.Environ()
+	for i := range env {
+		if env[i]=="XDG_SESSION_TYPE=x11" {
+			I.Ln("running X11, primary selection buffer enabled")
+			RunningX=true
+			break
+		}
+	}
+	if !RunningX {
+		return
+	}
 	var e error
 	X, e = xgb.NewConnDisplay("")
 	if e != nil {
 		panic(e)
 	}
-	
+
 	selnotify = make(chan bool, 1)
-	
+
 	win, e = xproto.NewWindowId(X)
 	if e != nil {
 		panic(e)
 	}
-	
+
 	setup := xproto.Setup(X)
 	s := setup.DefaultScreen(X)
 	e = xproto.CreateWindowChecked(
@@ -59,22 +73,24 @@ func Start() {
 	if e != nil {
 		panic(e)
 	}
-	
+
 	clipboardAtom = internAtom(X, "CLIPBOARD")
 	primaryAtom = internAtom(X, "PRIMARY")
 	textAtom = internAtom(X, "UTF8_STRING")
 	targetsAtom = internAtom(X, "TARGETS")
 	atomAtom = internAtom(X, "ATOM")
-	
+
 	targetAtoms = []xproto.Atom{targetsAtom, textAtom}
-	
+
 	go eventLoop()
 }
 
-func Set(text string) {
+func Set(text string) (e error){
+	if !RunningX {
+		return
+	}
 	clipboardText = text
 	ssoc := xproto.SetSelectionOwnerChecked(X, win, clipboardAtom, xproto.TimeCurrentTime)
-	var e error
 	if e = ssoc.Check(); E.Chk(e) {
 		fmt.Fprintf(os.Stderr, "Error setting clipboard: %v", e)
 	}
@@ -82,13 +98,32 @@ func Set(text string) {
 	if e = ssoc.Check(); E.Chk(e) {
 		fmt.Fprintf(os.Stderr, "Error setting primary selection: %v", e)
 	}
+	return
+}
+
+func SetPrimary(text string) (e error){
+	if !RunningX {
+		return
+	}
+	clipboardText = text
+	ssoc := xproto.SetSelectionOwnerChecked(X, win, primaryAtom, xproto.TimeCurrentTime)
+	if e = ssoc.Check(); E.Chk(e) {
+		fmt.Fprintf(os.Stderr, "Error setting primary selection: %v", e)
+	}
+	return
 }
 
 func Get() string {
+	if !RunningX {
+		return ""
+	}
 	return getSelection(clipboardAtom)
 }
 
 func GetPrimary() string {
+	if !RunningX {
+		return ""
+	}
 	return getSelection(primaryAtom)
 }
 
