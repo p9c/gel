@@ -52,16 +52,18 @@ func (s *scaledConfig) Px(v unit.Value) int {
 type Window struct {
 	*Theme
 	*app.Window
-	opts             []app.Option
-	scale            *scaledConfig
-	Width            *uberatomic.Int32 // stores the width at the beginning of render
-	Height           *uberatomic.Int32
-	ops              op.Ops
-	evQ              system.FrameEvent
-	Runner           CallbackQueue
-	overlay          []*func(gtx l.Context)
-	clipboardReqs    chan string
-	ClipboardContent string
+	opts               []app.Option
+	scale              *scaledConfig
+	Width              *uberatomic.Int32 // stores the width at the beginning of render
+	Height             *uberatomic.Int32
+	ops                op.Ops
+	evQ                system.FrameEvent
+	Runner             CallbackQueue
+	overlay            []*func(gtx l.Context)
+	clipboardWriteReqs chan string
+	ClipboardReadReqs  chan func(string)
+	ClipboardContent   string
+	clipboardReadReady qu.C
 }
 
 func (w *Window) PushOverlay(overlay *func(gtx l.Context)) {
@@ -99,11 +101,13 @@ func (w *Window) Overlay(gtx l.Context) {
 // NewWindowP9 creates a new window
 func NewWindowP9(quit chan struct{}) (out *Window) {
 	out = &Window{
-		scale:         &scaledConfig{1},
-		Runner:        NewCallbackQueue(32),
-		Width:         uberatomic.NewInt32(0),
-		Height:        uberatomic.NewInt32(0),
-		clipboardReqs: make(chan string, 1),
+		scale:              &scaledConfig{1},
+		Runner:             NewCallbackQueue(32),
+		Width:              uberatomic.NewInt32(0),
+		Height:             uberatomic.NewInt32(0),
+		clipboardWriteReqs: make(chan string, 1),
+		ClipboardReadReqs:  make(chan func(string), 32),
+		clipboardReadReady: qu.Ts(1),
 	}
 	out.Theme = NewTheme(
 		binary.New(meta.Data{}, false, nil),
@@ -162,8 +166,14 @@ func (w *Window) Run(frame func(ctx l.Context) l.Dimensions, destroy func(), qui
 		ticker := time.NewTicker(time.Second)
 		for {
 			select {
-			case content := <-w.clipboardReqs:
+			case content := <-w.clipboardWriteReqs:
 				w.WriteClipboard(content)
+			case fn := <-w.ClipboardReadReqs:
+				go func(){
+					w.ReadClipboard()
+					<-w.clipboardReadReady
+					fn(w.ClipboardContent)
+				}()
 			case <-ticker.C:
 				if runtime.GOOS == "linux" {
 					var e error
@@ -240,11 +250,6 @@ func (w *Window) processEvents(e event.Event, frame func(ctx l.Context) l.Dimens
 	switch ev := e.(type) {
 	case system.DestroyEvent:
 		D.Ln("received destroy event", ev.Err)
-		// if e.Err != nil {
-		// 	if strings.Contains(e.Err.Error(), "eglCreateWindowSurface failed") {
-		// 		return nil
-		// 	}
-		// }
 		destroy()
 		return ev.Err
 	case system.FrameEvent:
@@ -257,8 +262,8 @@ func (w *Window) processEvents(e event.Event, frame func(ctx l.Context) l.Dimens
 		w.Overlay(c)
 		ev.Frame(c.Ops)
 	case clipboard2.Event:
-		I.S(ev)
 		w.ClipboardContent = ev.Text
+		w.clipboardReadReady.Signal()
 	}
 	return nil
 }

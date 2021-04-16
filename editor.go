@@ -374,12 +374,18 @@ func (e *Editor) processPointer(gtx layout.Context) {
 					e.moveWord(1, selectionExtend)
 					e.dragging = false
 				}
+				// todo: process a triple click - select all
+
+				// todo: on X process middle click as insert Primary at pointer position
+
 			}
 		case pointer.Event:
 			release := false
 			switch {
 			case evt.Type == pointer.Release && evt.Source == pointer.Mouse:
 				release = true
+				// todo: somewhere in here write selection text to Primary on X.
+				//  It will have the moveCoord like the next section
 				fallthrough
 			case evt.Type == pointer.Drag && evt.Source == pointer.Mouse:
 				if e.dragging {

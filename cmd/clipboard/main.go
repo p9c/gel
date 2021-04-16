@@ -1,12 +1,8 @@
 package main
 
 import (
-	"runtime"
-
 	l "gioui.org/layout"
 	"github.com/p9c/qu"
-
-	"github.com/p9c/gel/clipboard"
 
 	"github.com/p9c/gel"
 )
@@ -56,17 +52,23 @@ func (s *State) rootWidget(gtx l.Context) l.Dimensions {
 												s.showClicker.
 													SetClick(func() {
 														I.Ln("user clicked button")
-														// clipboard.ReadOp{Tag: &s.evKey}.Add(gtx.Ops)
-														switch runtime.GOOS {
-														case "ios", "android":
-															s.Window.ReadClipboard()
-															// I.S(s.Window.Window)
-															*s.showText = s.Window.ClipboardContent
-														default:
-															txt := clipboard.Get()
-															*s.showText = txt
+														s.ClipboardReadReqs <- func(cs string) {
+															*s.showText = cs
+															I.Ln("clipboard contents:", cs)
 														}
-														I.Ln(s.showText)
+														// // clipboard.ReadOp{Tag: &s.evKey}.Add(gtx.Ops)
+														// // I.Ln(runtime.GOOS)
+														// // switch runtime.GOOS {
+														// // case "ios", "android":
+														// s.Window.ReadClipboard()
+														// // I.S(s.Window.Window)
+														// I.S(*s.showText, s.Window.ClipboardContent)
+														// *s.showText = s.Window.ClipboardContent
+														// // default:
+														// // 	txt := clipboard.Get()
+														// // 	*s.showText = txt
+														// // }
+														// I.Ln(*s.showText)
 													}),
 											).CornerRadius(0.25).Corners(^0).
 												Embed(

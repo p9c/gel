@@ -11,6 +11,8 @@ import (
 	"github.com/BurntSushi/xgb/xproto"
 )
 
+// todo: only X is required from this package, the rest runs off the built-in Gio clipboard
+
 const debugClipboardRequests = false
 
 var X *xgb.Conn
