@@ -16,6 +16,5 @@ require (
 	gopkg.in/src-d/go-git.v4 v4.13.1
 )
 
-//replace gioui.org => github.com/p9c/gio v0.0.3 (or to the local one in a gopath-like tree)
+//replace gioui.org => github.com/p9c/gio v0.0.3 
 replace gioui.org => ./gio
-// or in other words, you have to clone gioui.org or other into parent directory
