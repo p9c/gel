@@ -41,7 +41,7 @@ func NewState(quit qu.C) (s *State) {
 func main() {
 	quit := qu.T()
 	state := NewState(quit)
-	*state.showText = "hello world!"
+	*state.showText = "clipboard demo/test"
 	var e error
 	if e = state.Window.
 		Size(48, 32).
