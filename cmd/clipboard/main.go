@@ -21,12 +21,13 @@ func NewState(quit qu.C) (s *State) {
 	s = &State{
 		Window: gel.NewWindowP9(quit),
 	}
-	s.showText = &s.Window.ClipboardContent
+	txt := ""
+	s.showText = &txt
 	s.showClicker = s.WidgetPool.GetClickable()
 	s.showPrimaryClicker = s.WidgetPool.GetClickable()
 	s.editor = s.Input(
 		"",
-		"Amount",
+		"type something to test editor things",
 		"DocText",
 		"PanelBg",
 		"DocBg",
@@ -55,7 +56,7 @@ func (s *State) rootWidget(gtx l.Context) l.Dimensions {
 			s.Inset(0.5,
 				s.Border().Color("DocText").Embed(
 					s.VFlex().
-						Flexed(0.25,
+						Flexed(0.5,
 							s.Inset(0.5,
 								s.Border().Color("DocText").Embed(
 									s.VFlex().
@@ -63,45 +64,45 @@ func (s *State) rootWidget(gtx l.Context) l.Dimensions {
 											s.Direction().Center().Embed(
 												s.Flex().
 													Rigid(
-													s.Inset(0.5,
-														s.ButtonLayout(
-															s.showClicker.
-																SetClick(func() {
-																	I.Ln("user clicked button")
-																	s.ClipboardReadReqs <- func(cs string) {
-																		*s.showText = cs
-																		I.Ln("clipboard contents:", cs)
-																	}
-																}),
-														).CornerRadius(0.25).Corners(^0).
-															Embed(
+														s.Inset(0.5,
+															s.ButtonLayout(
+																s.showClicker.
+																	SetClick(func() {
+																		I.Ln("user clicked button")
+																		s.ClipboardReadReqs <- func(cs string) {
+																			*s.showText = cs
+																			I.Ln("clipboard contents:", cs)
+																		}
+																	}),
+															).CornerRadius(0.25).Corners(^0).
+																Embed(
 																	s.Border().CornerRadius(0.25).Color("DocText").Embed(
 																		s.Inset(0.5,
-																			s.H6("display text in clipboard").
+																			s.H6("show clipboard").
 																				Fn,
 																		).Fn,
 																	).Fn,
 																).Fn,
-															).Fn,
+														).Fn,
 													).
 													Rigid(
-													s.Inset(0.5,
-														s.ButtonLayout(
-															s.showPrimaryClicker.
-																SetClick(func() {
-																	I.Ln("user clicked show primary button")
-																	*s.showText = clipboard.GetPrimary()
-																}),
-														).CornerRadius(0.25).Corners(^0).
-															Embed(
+														s.Inset(0.5,
+															s.ButtonLayout(
+																s.showPrimaryClicker.
+																	SetClick(func() {
+																		I.Ln("user clicked show primary button")
+																		*s.showText = clipboard.GetPrimary()
+																	}),
+															).CornerRadius(0.25).Corners(^0).
+																Embed(
 																	s.Border().CornerRadius(0.25).Color("DocText").Embed(
 																		s.Inset(0.5,
-																			s.H6("display text in primary clipboard (X only)").
+																			s.H6("show primary").
 																				Fn,
 																		).Fn,
 																	).Fn,
 																).Fn,
-															).Fn,
+														).Fn,
 													).Fn,
 											).Fn,
 										).
@@ -113,13 +114,15 @@ func (s *State) rootWidget(gtx l.Context) l.Dimensions {
 								).Fn,
 							).Fn,
 						).
-						Flexed(0.75,
+						Flexed(0.5,
 							s.Inset(0.5,
 								s.Border().Color("DocText").Embed(
 									s.Flex().Flexed(1,
-										s.Direction().Center().Embed(
-											s.H2(*s.showText).
-												Fn,
+										s.Direction().NW().Embed(
+											s.Inset(0.5,
+												s.Body1(*s.showText).
+													Fn,
+											).Fn,
 										).Fn,
 									).
 										Fn,

@@ -3,7 +3,7 @@ module github.com/p9c/gel
 go 1.16
 
 require (
-	gioui.org v0.0.0-20210412115641-3a94f7bf7088
+	gioui.org v0.0.0-20210416090721-0a918581630a
 	github.com/BurntSushi/xgb v0.0.0-20210121224620-deaf085860bc
 	github.com/atotto/clipboard v0.1.4
 	github.com/p9c/interrupt v0.0.2
@@ -15,3 +15,6 @@ require (
 	golang.org/x/image v0.0.0-20210220032944-ac19c3e999fb
 	gopkg.in/src-d/go-git.v4 v4.13.1
 )
+
+//replace gioui.org => github.com/p9c/gio v0.0.3 (or to the local one in a gopath-like tree)
+replace gioui.org => ../gio

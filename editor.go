@@ -15,21 +15,23 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"gioui.org/f32"
 	"gioui.org/io/clipboard"
 	"gioui.org/io/event"
-	"gioui.org/op/clip"
-
-	"gioui.org/f32"
-	"gioui.org/gesture"
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/unit"
 
+	"github.com/p9c/gel/gesture"
+
 	"golang.org/x/image/math/fixed"
+
+	clipboard3 "github.com/p9c/gel/clipboard"
 )
 
 func (w *Window) Editor() *Editor {
@@ -278,21 +280,30 @@ func (e *Editor) processPointer(gtx layout.Context) {
 					e.ClearSelection()
 				}
 				e.dragging = true
-
+				I.Ln(evt.NumClicks)
 				// Process a double-click.
 				if evt.NumClicks == 2 {
 					e.moveWord(-1, selectionClear)
 					e.moveWord(1, selectionExtend)
 					e.dragging = false
 				}
-				// todo: process a triple click - select all
-
-				// todo: on X process middle click as insert Primary at pointer position
-
+				// process a triple click - select all. This required forking gioui.org/gesture
+				if evt.NumClicks == 3 {
+					e.dragging = false
+					e.caret.end, e.caret.start = e.offsetToScreenPos2(0, e.Len())
+					evt.NumClicks=0
+				}
 			}
 		case pointer.Event:
 			release := false
 			switch {
+			// on X11 process middle click as insert Primary at pointer position
+			case evt.Buttons == pointer.ButtonTertiary && evt.Source == pointer.Mouse:
+				e.moveCoord(image.Point{
+					X: int(math.Round(float64(evt.Position.X))),
+					Y: int(math.Round(float64(evt.Position.Y))),
+				})
+				e.prepend(clipboard3.GetPrimary())
 			case evt.Type == pointer.Release && evt.Source == pointer.Mouse:
 				release = true
 				// todo: somewhere in here write selection text to Primary on X.
@@ -311,6 +322,8 @@ func (e *Editor) processPointer(gtx layout.Context) {
 						e.dragging = false
 					}
 				}
+			default:
+				I.S(evt)
 			}
 		}
 	}
