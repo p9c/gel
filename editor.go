@@ -27,7 +27,7 @@ import (
 	"gioui.org/text"
 	"gioui.org/unit"
 
-	"github.com/p9c/gel/gesture"
+	"gioui.org/gesture"
 
 	"golang.org/x/image/math/fixed"
 
@@ -221,6 +221,11 @@ func (e *Editor) processEvents(gtx layout.Context) {
 	if newStart, newLen := min(e.caret.start.ofs, e.caret.end.ofs),
 		e.SelectionLen(); oldStart != newStart || oldLen != newLen {
 		e.events = append(e.events, SelectEvent{})
+		if e.SelectionLen() != 0 {
+			st := e.SelectedText()
+			_ = clipboard3.SetPrimary(st)
+			// I.F("new primary buffer string: '%s'", st)
+		}
 	}
 }
 
@@ -259,39 +264,55 @@ func (e *Editor) processPointer(gtx layout.Context) {
 			switch {
 			case evt.Type == gesture.TypePress && evt.Source == pointer.Mouse,
 				evt.Type == gesture.TypeClick:
-				prevCaretPos := e.caret.start
-				e.blinkStart = gtx.Now
-				e.moveCoord(image.Point{
-					X: int(math.Round(float64(evt.Position.X))),
-					Y: int(math.Round(float64(evt.Position.Y))),
-				})
-				e.requestFocus = true
-				if e.scroller.State() != gesture.StateFlinging {
-					e.caret.scroll = true
-				}
-
-				if evt.Modifiers == key.ModShift {
-					// If they clicked closer to the end, then change the end to
-					// where the caret used to be (effectively swapping start & end).
-					if abs(e.caret.end.ofs-e.caret.start.ofs) < abs(e.caret.start.ofs-prevCaretPos.ofs) {
-						e.caret.end = prevCaretPos
+				if evt.Button == pointer.ButtonPrimary {
+					prevCaretPos := e.caret.start
+					e.blinkStart = gtx.Now
+					e.moveCoord(image.Point{
+						X: int(math.Round(float64(evt.Position.X))),
+						Y: int(math.Round(float64(evt.Position.Y))),
+					})
+					e.requestFocus = true
+					if e.scroller.State() != gesture.StateFlinging {
+						e.caret.scroll = true
 					}
-				} else {
-					e.ClearSelection()
+					if evt.Modifiers == key.ModShift {
+						// If they clicked closer to the end, then change the end to
+						// where the caret used to be (effectively swapping start & end).
+						if abs(e.caret.end.ofs-e.caret.start.ofs) < abs(e.caret.start.ofs-prevCaretPos.ofs) {
+							e.caret.end = prevCaretPos
+						}
+					} else {
+						e.ClearSelection()
+					}
 				}
 				e.dragging = true
-				I.Ln(evt.NumClicks)
+				// I.S(evt)
 				// Process a double-click.
-				if evt.NumClicks == 2 {
-					e.moveWord(-1, selectionClear)
-					e.moveWord(1, selectionExtend)
-					e.dragging = false
+				// Double and triple clicks are primary button only
+				if evt.Button == pointer.ButtonPrimary {
+					if evt.NumClicks == 2 {
+						e.moveWord(-1, selectionClear)
+						e.moveWord(1, selectionExtend)
+						e.dragging = false
+					}
+					// process a triple click - select all. This required forking gioui.org/gesture
+					if evt.NumClicks == 3 {
+						e.dragging = false
+						e.caret.end, e.caret.start = e.offsetToScreenPos2(0, e.Len())
+						evt.NumClicks = 0
+					}
 				}
-				// process a triple click - select all. This required forking gioui.org/gesture
-				if evt.NumClicks == 3 {
-					e.dragging = false
-					e.caret.end, e.caret.start = e.offsetToScreenPos2(0, e.Len())
-					evt.NumClicks=0
+				if evt.Button == pointer.ButtonTertiary && evt.Type == gesture.TypeClick {
+					e.blinkStart = gtx.Now
+					e.moveCoord(image.Point{
+						X: int(math.Round(float64(evt.Position.X))),
+						Y: int(math.Round(float64(evt.Position.Y))),
+					})
+					e.ClearSelection()
+					primary := clipboard3.GetPrimary()
+					e.prepend(primary)
+					distance := utf8.RuneCountInString(primary)
+					e.MoveCaret(distance, int(selectionExtend))
 				}
 			}
 		case pointer.Event:
@@ -306,8 +327,6 @@ func (e *Editor) processPointer(gtx layout.Context) {
 				e.prepend(clipboard3.GetPrimary())
 			case evt.Type == pointer.Release && evt.Source == pointer.Mouse:
 				release = true
-				// todo: somewhere in here write selection text to Primary on X.
-				//  It will have the moveCoord like the next section
 				fallthrough
 			case evt.Type == pointer.Drag && evt.Source == pointer.Mouse:
 				if e.dragging {
@@ -323,7 +342,7 @@ func (e *Editor) processPointer(gtx layout.Context) {
 					}
 				}
 			default:
-				I.S(evt)
+				// I.S(evt)
 			}
 		}
 	}

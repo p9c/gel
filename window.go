@@ -8,9 +8,10 @@ import (
 	"strings"
 	"time"
 
-	clipboard2 "gioui.org/io/clipboard"
 	"github.com/p9c/opts/binary"
 	"github.com/p9c/opts/meta"
+
+	clipboard2 "gioui.org/io/clipboard"
 
 	"github.com/p9c/gel/clipboard"
 	"github.com/p9c/gel/fonts/p9fonts"
@@ -19,12 +20,13 @@ import (
 
 	"github.com/p9c/qu"
 
+	uberatomic "go.uber.org/atomic"
+
 	"gioui.org/app"
 	"gioui.org/io/system"
 	l "gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/unit"
-	uberatomic "go.uber.org/atomic"
 )
 
 type CallbackQueue chan func() error
@@ -52,18 +54,19 @@ func (s *scaledConfig) Px(v unit.Value) int {
 type Window struct {
 	*Theme
 	*app.Window
-	opts               []app.Option
-	scale              *scaledConfig
-	Width              *uberatomic.Int32 // stores the width at the beginning of render
-	Height             *uberatomic.Int32
-	ops                op.Ops
-	evQ                system.FrameEvent
-	Runner             CallbackQueue
-	overlay            []*func(gtx l.Context)
-	ClipboardWriteReqs chan string
-	ClipboardReadReqs  chan func(string)
-	ClipboardContent   string
-	clipboardReadReady qu.C
+	opts                  []app.Option
+	scale                 *scaledConfig
+	Width                 *uberatomic.Int32 // stores the width at the beginning of render
+	Height                *uberatomic.Int32
+	ops                   op.Ops
+	evQ                   system.FrameEvent
+	Runner                CallbackQueue
+	overlay               []*func(gtx l.Context)
+	ClipboardWriteReqs    chan string
+	ClipboardReadReqs     chan func(string)
+	ClipboardContent      string
+	clipboardReadReady    qu.C
+	clipboardReadResponse chan string
 }
 
 func (w *Window) PushOverlay(overlay *func(gtx l.Context)) {
@@ -108,6 +111,7 @@ func NewWindowP9(quit chan struct{}) (out *Window) {
 		ClipboardWriteReqs: make(chan string, 1),
 		ClipboardReadReqs:  make(chan func(string), 32),
 		clipboardReadReady: qu.Ts(1),
+		clipboardReadResponse: make(chan string,1),
 	}
 	out.Theme = NewTheme(
 		binary.New(meta.Data{}, false, nil),
@@ -169,10 +173,9 @@ func (w *Window) Run(frame func(ctx l.Context) l.Dimensions, destroy func(), qui
 			case content := <-w.ClipboardWriteReqs:
 				w.WriteClipboard(content)
 			case fn := <-w.ClipboardReadReqs:
-				go func(){
+				go func() {
 					w.ReadClipboard()
-					<-w.clipboardReadReady
-					fn(w.ClipboardContent)
+					fn(<-w.clipboardReadResponse)
 				}()
 			case <-ticker.C:
 				if runtime.GOOS == "linux" {
@@ -262,8 +265,9 @@ func (w *Window) processEvents(e event.Event, frame func(ctx l.Context) l.Dimens
 		w.Overlay(c)
 		ev.Frame(c.Ops)
 	case clipboard2.Event:
-		w.ClipboardContent = ev.Text
-		w.clipboardReadReady.Signal()
+		// w.ClipboardContent = ev.Text
+		// w.clipboardReadReady.Signal()
+		w.clipboardReadResponse <- ev.Text
 	}
 	return nil
 }

@@ -1,8 +1,9 @@
 package main
 
 import (
-	l "gioui.org/layout"
 	"github.com/p9c/qu"
+
+	l "gioui.org/layout"
 
 	"github.com/p9c/gel"
 	"github.com/p9c/gel/clipboard"
@@ -68,7 +69,7 @@ func (s *State) rootWidget(gtx l.Context) l.Dimensions {
 															s.ButtonLayout(
 																s.showClicker.
 																	SetClick(func() {
-																		I.Ln("user clicked button")
+																		I.Ln("user clicked show clipboard button")
 																		s.ClipboardReadReqs <- func(cs string) {
 																			*s.showText = cs
 																			I.Ln("clipboard contents:", cs)
@@ -90,8 +91,8 @@ func (s *State) rootWidget(gtx l.Context) l.Dimensions {
 															s.ButtonLayout(
 																s.showPrimaryClicker.
 																	SetClick(func() {
-																		I.Ln("user clicked show primary button")
 																		*s.showText = clipboard.GetPrimary()
+																		I.Ln("clipboard contents:", *s.showText)
 																	}),
 															).CornerRadius(0.25).Corners(^0).
 																Embed(
