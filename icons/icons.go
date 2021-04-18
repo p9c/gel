@@ -1,5 +1,7 @@
 // Package icons bundles the entire set of several icon sets into one package as maps to allow iteration
-//go:generate go run ../gel/cmd/iconchooser/gen/.
+
+//go:generate go run ./icongen/.
+
 package icons
 
 import (
