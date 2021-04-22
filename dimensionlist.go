@@ -1,8 +1,8 @@
 package gel
 
 import (
-	l "gioui.org/layout"
-	"gioui.org/op"
+	l "github.com/p9c/gio/layout"
+	"github.com/p9c/gio/op"
 )
 
 type DimensionList []l.Dimensions

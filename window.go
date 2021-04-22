@@ -11,22 +11,22 @@ import (
 	"github.com/p9c/opts/binary"
 	"github.com/p9c/opts/meta"
 
-	clipboard2 "gioui.org/io/clipboard"
+	clipboard2 "github.com/p9c/gio/io/clipboard"
 
 	"github.com/p9c/gel/clipboard"
 	"github.com/p9c/gel/fonts/p9fonts"
 
-	"gioui.org/io/event"
+	"github.com/p9c/gio/io/event"
 
 	"github.com/p9c/qu"
 
 	uberatomic "go.uber.org/atomic"
 
-	"gioui.org/app"
-	"gioui.org/io/system"
-	l "gioui.org/layout"
-	"gioui.org/op"
-	"gioui.org/unit"
+	"github.com/p9c/gio/app"
+	"github.com/p9c/gio/io/system"
+	l "github.com/p9c/gio/layout"
+	"github.com/p9c/gio/op"
+	"github.com/p9c/gio/unit"
 )
 
 type CallbackQueue chan func() error

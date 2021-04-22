@@ -3,11 +3,11 @@ package gel
 import (
 	"image/color"
 	
-	"gioui.org/f32"
-	l "gioui.org/layout"
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
-	"gioui.org/unit"
+	"github.com/p9c/gio/f32"
+	l "github.com/p9c/gio/layout"
+	"github.com/p9c/gio/op/clip"
+	"github.com/p9c/gio/op/paint"
+	"github.com/p9c/gio/unit"
 )
 
 // Border lays out a widget and draws a border inside it.

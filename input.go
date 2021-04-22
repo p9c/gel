@@ -5,7 +5,7 @@ import (
 
 	"golang.org/x/exp/shiny/materialdesign/icons"
 
-	l "gioui.org/layout"
+	l "github.com/p9c/gio/layout"
 )
 
 type Input struct {

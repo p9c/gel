@@ -4,12 +4,12 @@ import (
 	"log"
 	"os"
 	
-	"gioui.org/app"
-	"gioui.org/io/system"
-	"gioui.org/layout"
-	"gioui.org/op"
-	"gioui.org/op/paint"
-	"gioui.org/unit"
+	"github.com/p9c/gio/app"
+	"github.com/p9c/gio/io/system"
+	"github.com/p9c/gio/layout"
+	"github.com/p9c/gio/op"
+	"github.com/p9c/gio/op/paint"
+	"github.com/p9c/gio/unit"
 	
 	"github.com/p9c/pod/pkg/gui"
 	"github.com/p9c/pod/pkg/gui/dialog"

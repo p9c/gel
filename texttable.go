@@ -1,6 +1,6 @@
 package gel
 
-import l "gioui.org/layout"
+import l "github.com/p9c/gio/layout"
 
 type TextTableHeader []string
 

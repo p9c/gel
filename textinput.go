@@ -3,11 +3,11 @@ package gel
 import (
 	"image/color"
 
-	l "gioui.org/layout"
-	"gioui.org/op"
-	"gioui.org/op/paint"
-	"gioui.org/text"
-	"gioui.org/unit"
+	l "github.com/p9c/gio/layout"
+	"github.com/p9c/gio/op"
+	"github.com/p9c/gio/op/paint"
+	"github.com/p9c/gio/text"
+	"github.com/p9c/gio/unit"
 
 	"github.com/p9c/gel/f32color"
 )

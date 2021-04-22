@@ -3,7 +3,7 @@ package gel
 import (
 	"fmt"
 	
-	l "gioui.org/layout"
+	l "github.com/p9c/gio/layout"
 	"golang.org/x/exp/shiny/materialdesign/icons"
 )
 

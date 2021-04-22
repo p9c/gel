@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sync"
 
-	"gioui.org/font/opentype"
-	"gioui.org/text"
+	"github.com/p9c/gio/font/opentype"
+	"github.com/p9c/gio/text"
 	"golang.org/x/image/font/gofont/gomono"
 	"golang.org/x/image/font/gofont/gomonobold"
 	"golang.org/x/image/font/gofont/gomonobolditalic"

@@ -4,12 +4,12 @@ import (
 	"image"
 	"image/color"
 	
-	"gioui.org/f32"
-	l "gioui.org/layout"
-	"gioui.org/op"
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
-	"gioui.org/unit"
+	"github.com/p9c/gio/f32"
+	l "github.com/p9c/gio/layout"
+	"github.com/p9c/gio/op"
+	"github.com/p9c/gio/op/clip"
+	"github.com/p9c/gio/op/paint"
+	"github.com/p9c/gio/unit"
 	icons2 "golang.org/x/exp/shiny/materialdesign/icons"
 	
 	"github.com/p9c/pod/pkg/gui"

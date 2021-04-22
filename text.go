@@ -4,12 +4,12 @@ import (
 	"image"
 	"unicode/utf8"
 
-	l "gioui.org/layout"
-	"gioui.org/op"
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
-	"gioui.org/text"
-	"gioui.org/unit"
+	l "github.com/p9c/gio/layout"
+	"github.com/p9c/gio/op"
+	"github.com/p9c/gio/op/clip"
+	"github.com/p9c/gio/op/paint"
+	"github.com/p9c/gio/text"
+	"github.com/p9c/gio/unit"
 
 	"golang.org/x/image/math/fixed"
 )

@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"gioui.org/text"
-	"gioui.org/unit"
+	"github.com/p9c/gio/text"
+	"github.com/p9c/gio/unit"
 	"github.com/p9c/opts/binary"
 	"github.com/p9c/qu"
 )

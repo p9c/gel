@@ -3,11 +3,11 @@ package gel
 import (
 	"image"
 
-	"gioui.org/io/pointer"
-	l "gioui.org/layout"
-	"gioui.org/op/paint"
-	"gioui.org/text"
-	"gioui.org/unit"
+	"github.com/p9c/gio/io/pointer"
+	l "github.com/p9c/gio/layout"
+	"github.com/p9c/gio/op/paint"
+	"github.com/p9c/gio/text"
+	"github.com/p9c/gio/unit"
 	"golang.org/x/exp/shiny/materialdesign/icons"
 )
 

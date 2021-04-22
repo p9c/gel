@@ -3,7 +3,7 @@ package gel
 import (
 	"sort"
 	
-	l "gioui.org/layout"
+	l "github.com/p9c/gio/layout"
 )
 
 // WidgetSize is a widget with a specification of the minimum size to select it for viewing.

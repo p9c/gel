@@ -6,9 +6,9 @@ import (
 	"go.uber.org/atomic"
 	"golang.org/x/exp/shiny/materialdesign/icons"
 	
-	l "gioui.org/layout"
-	"gioui.org/text"
-	"gioui.org/unit"
+	l "github.com/p9c/gio/layout"
+	"github.com/p9c/gio/text"
+	"github.com/p9c/gio/unit"
 )
 
 // App defines an application with a header, sidebar/menu, right side button bar, changeable body page widget and

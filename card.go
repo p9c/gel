@@ -1,6 +1,6 @@
 package gel
 
-import l "gioui.org/layout"
+import l "github.com/p9c/gio/layout"
 
 func (w *Window) Card(background string, embed l.Widget,
 ) func(gtx l.Context) l.Dimensions {

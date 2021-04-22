@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/p9c/qu"
 
-	l "gioui.org/layout"
+	l "github.com/p9c/gio/layout"
 
 	"github.com/p9c/gel"
 	"github.com/p9c/gel/clipboard"

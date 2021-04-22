@@ -5,11 +5,11 @@ package gel
 import (
 	"image"
 	
-	"gioui.org/layout"
-	"gioui.org/op"
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
-	"gioui.org/unit"
+	"github.com/p9c/gio/layout"
+	"github.com/p9c/gio/op"
+	"github.com/p9c/gio/op/clip"
+	"github.com/p9c/gio/op/paint"
+	"github.com/p9c/gio/unit"
 )
 
 // Image is a widget that displays an image.

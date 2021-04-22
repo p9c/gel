@@ -6,11 +6,11 @@ import (
 	"image/color"
 	"time"
 	
-	"gioui.org/f32"
-	"gioui.org/io/system"
-	l "gioui.org/layout"
-	"gioui.org/op"
-	"gioui.org/text"
+	"github.com/p9c/gio/f32"
+	"github.com/p9c/gio/io/system"
+	l "github.com/p9c/gio/layout"
+	"github.com/p9c/gio/op"
+	"github.com/p9c/gio/text"
 )
 
 // Defining these as types gives flexibility later to create methods that modify them

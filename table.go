@@ -4,8 +4,8 @@ import (
 	"image"
 	"sort"
 	
-	l "gioui.org/layout"
-	"gioui.org/op"
+	l "github.com/p9c/gio/layout"
+	"github.com/p9c/gio/op"
 )
 
 type Cell struct {

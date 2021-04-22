@@ -5,10 +5,10 @@ package gel
 import (
 	"image"
 	
-	"gioui.org/f32"
-	l "gioui.org/layout"
-	"gioui.org/op"
-	"gioui.org/op/clip"
+	"github.com/p9c/gio/f32"
+	l "github.com/p9c/gio/layout"
+	"github.com/p9c/gio/op"
+	"github.com/p9c/gio/op/clip"
 )
 
 // Fit scales a widget to fit and clip to the constraints.

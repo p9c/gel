@@ -4,11 +4,11 @@ import (
 	"image"
 	"time"
 	
-	"gioui.org/gesture"
-	"gioui.org/io/pointer"
-	l "gioui.org/layout"
-	"gioui.org/op"
-	"gioui.org/op/clip"
+	"github.com/p9c/gio/gesture"
+	"github.com/p9c/gio/io/pointer"
+	l "github.com/p9c/gio/layout"
+	"github.com/p9c/gio/op"
+	"github.com/p9c/gio/op/clip"
 )
 
 type scrollChild struct {

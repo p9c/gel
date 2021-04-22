@@ -5,9 +5,9 @@ import (
 	"image/color"
 	"image/draw"
 	
-	l "gioui.org/layout"
-	"gioui.org/op/paint"
-	"gioui.org/unit"
+	l "github.com/p9c/gio/layout"
+	"github.com/p9c/gio/op/paint"
+	"github.com/p9c/gio/unit"
 	"golang.org/x/exp/shiny/iconvg"
 )
 

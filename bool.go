@@ -1,7 +1,7 @@
 package gel
 
 import (
-	l "gioui.org/layout"
+	l "github.com/p9c/gio/layout"
 )
 
 type BoolHook func(b bool)

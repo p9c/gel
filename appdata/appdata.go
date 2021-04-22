@@ -8,7 +8,7 @@ import (
 	"strings"
 	"unicode"
 
-	"gioui.org/app"
+	"github.com/p9c/gio/app"
 )
 
 // GetDataDir returns an operating system specific directory to be used for

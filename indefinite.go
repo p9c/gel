@@ -6,11 +6,11 @@ import (
 	"math"
 	"time"
 	
-	"gioui.org/f32"
-	l "gioui.org/layout"
-	"gioui.org/op"
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
+	"github.com/p9c/gio/f32"
+	l "github.com/p9c/gio/layout"
+	"github.com/p9c/gio/op"
+	"github.com/p9c/gio/op/clip"
+	"github.com/p9c/gio/op/paint"
 )
 
 type Indefinite struct {

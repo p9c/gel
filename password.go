@@ -4,7 +4,7 @@ import (
 	"github.com/p9c/opts/text"
 	icons2 "golang.org/x/exp/shiny/materialdesign/icons"
 
-	l "gioui.org/layout"
+	l "github.com/p9c/gio/layout"
 )
 
 type Password struct {
