@@ -413,7 +413,7 @@ func (a *App) renderSideBar() l.Widget {
 }
 
 func (a *App) ActivePage(activePage string) *App {
-	a.invalidate <- struct{}{}
+	a.Invalidate()
 	a.activePage.Store(activePage)
 	return a
 }
