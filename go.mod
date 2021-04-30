@@ -3,7 +3,6 @@ module github.com/p9c/gel
 go 1.16
 
 require (
-	gioui.org v0.0.0-20210416090721-0a918581630a
 	github.com/BurntSushi/xgb v0.0.0-20210121224620-deaf085860bc
 	github.com/atotto/clipboard v0.1.4
 	github.com/p9c/gio v0.0.5
@@ -19,4 +18,4 @@ require (
 
 //replace gioui.org => github.com/p9c/gio v0.0.3
 //replace gioui.org => github.com/p9c/gio v0.0.5
-//replace github.com/p9c/gio => ./gio
+replace github.com/p9c/gio => ./gio

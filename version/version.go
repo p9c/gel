@@ -1,6 +1,10 @@
 package version
 
-import "fmt"
+//go:generate go run ./update/.
+
+import (
+	"fmt"
+)
 
 var (
 
@@ -9,24 +13,36 @@ var (
 	// GitRef is the gitref, as in refs/heads/branchname
 	GitRef = "refs/heads/master"
 	// GitCommit is the commit hash of the current HEAD
-	GitCommit = "cd01507ddce01090a75d9b2d01fae8c2408ae9d1"
+	GitCommit = "e3bfce4ba69afe391a2979f922559eaa573f0b97"
 	// BuildTime stores the time when the current binary was built
-	BuildTime = "2021-04-16T19:50:43+02:00"
+	BuildTime = "2021-04-30T17:45:26+02:00"
 	// Tag lists the Tag on the build, adding a + to the newest Tag if the commit is
 	// not that commit
-	Tag = "v0.1.13+"
+	Tag = "v0.1.19"
 	// PathBase is the path base returned from runtime caller
-	PathBase = "/home/loki/src/github.com/p9c/gel/"
+	PathBase = "/home/loki/src/github.com/p9c/pod/pkg/gel/"
+	// Major is the major number from the tag
+	Major = 0
+	// Minor is the minor number from the tag
+	Minor = 1
+	// Patch is the patch version number from the tag
+	Patch = 19
+	// Meta is the extra arbitrary string field from Semver spec
+	Meta = ""
 )
 
 // Get returns a pretty printed version information string
 func Get() string {
 	return fmt.Sprint(
-		"Repository Information\n"+
-		"	git repository: "+URL+"\n",
-		"	branch: "+GitRef+"\n"+
-		"	commit: "+GitCommit+"\n"+
-		"	built: "+BuildTime+"\n"+
-		"	Tag: "+Tag+"\n",
+		"\nRepository Information\n"+
+		"\tGit repository: "+URL+"\n",
+		"\tBranch: "+GitRef+"\n"+
+		"\tCommit: "+GitCommit+"\n"+
+		"\tBuilt: "+BuildTime+"\n"+
+		"\tTag: "+Tag+"\n",
+		"\tMajor:", Major, "\n",
+		"\tMinor:", Minor, "\n",
+		"\tPatch:", Patch, "\n",
+		"\tMeta: ", Meta, "\n",
 	)
 }
