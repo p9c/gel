@@ -11,14 +11,14 @@ var (
 	// URL is the git URL for the repository
 	URL = "github.com/p9c/gel"
 	// GitRef is the gitref, as in refs/heads/branchname
-	GitRef = "HEAD"
+	GitRef = "refs/heads/main"
 	// GitCommit is the commit hash of the current HEAD
-	GitCommit = "3bc258346af4865e6e6282b0219036aea688642a"
+	GitCommit = "92b237c25172b30af617ca4595645187605ff411"
 	// BuildTime stores the time when the current binary was built
-	BuildTime = "2021-04-30T20:33:06+02:00"
+	BuildTime = "2021-04-30T21:01:32+02:00"
 	// Tag lists the Tag on the build, adding a + to the newest Tag if the commit is
 	// not that commit
-	Tag = "v0.1.25"
+	Tag = "v0.1.25+"
 	// PathBase is the path base returned from runtime caller
 	PathBase = "/home/loki/src/github.com/p9c/pod/pkg/gel/"
 	// Major is the major number from the tag
